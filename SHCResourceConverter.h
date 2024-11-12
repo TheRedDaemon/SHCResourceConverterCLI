@@ -13,7 +13,7 @@ enum TgxStreamMarker : uint8_t
   TGX_MARKER_NEWLINE = 0x80,
 
   TGX_PIXEL_MARKER = 0xe0,
-  TGX_PIXEL_LENGTH = 0x1f,
+  TGX_PIXEL_NUMBER = 0x1f,
 };
 
 struct TgxHeader
@@ -94,6 +94,7 @@ struct GenericResource
 struct TgxResource
 {
   GenericResource base;
+  int dataSize;
   TgxHeader* header;
   uint8_t* imageData;
 };

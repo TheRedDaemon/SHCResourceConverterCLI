@@ -4,7 +4,13 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <memory>
+
 #include "SHCResourceConverter.h"
+
+// defined for transformation
+constexpr uint16_t TRANSPARENT_PIXEL{ 0 };
+constexpr uint16_t TRANSPARENT_COLOR{ 0b1111100000011111 }; // used by game for some cases (repeating pixels seem excluded?)
 
 class SimpleFileWrapper
 {
@@ -25,6 +31,99 @@ public:
   FILE* get() { return file; }
 };
 
+// currently without check, maybe better use some CPP structures for buffer safety?
+int transformTgxToRaw(const uint8_t* source, const int sourceSize, uint16_t* target, const int width, const int height/*, const int targetX, const int targetY, const int targetWidth*/)
+{
+  const int rawPixelSize{ width * height };
+  
+  int totalPixels{ 0 };
+  int currentWidth{ 0 };
+  int currentHeight{ 0 };
+
+  int targetIndex{ 0 };
+  for (int sourceIndex{ 0 }; sourceIndex < sourceSize;)
+  {
+    const TgxStreamMarker marker{ static_cast<TgxStreamMarker>(source[sourceIndex] & TgxStreamMarker::TGX_PIXEL_MARKER) };
+    const int pixelNumber{ (source[sourceIndex] & TgxStreamMarker::TGX_PIXEL_NUMBER) + 1 }; // 0 means one pixel, like an index
+    sourceIndex += 1;
+
+    if (marker == TgxStreamMarker::TGX_MARKER_NEWLINE)
+    {
+      // maybe 3 "newlines" is a end marker? -> is not, at least not with everything, maybe it is padding?
+      if (currentWidth <= 0)
+      {
+        continue;
+      }
+
+      // need to fill with transparent pixels
+      // TODO: are there even TGX without finished widths?
+      if (currentWidth < width)
+      {
+        const int missingPixels{ width - currentWidth };
+        for (int i{ 0 }; i < missingPixels; i++)
+        {
+          target[targetIndex] = TRANSPARENT_PIXEL;
+          targetIndex += 1;
+        }
+        totalPixels += missingPixels;
+      }
+
+      currentWidth = 0;
+      currentHeight += 1;
+      continue;
+    }
+    else if (currentWidth == width)
+    {
+      // no newline marker?
+      currentWidth = 0;
+      currentHeight += 1;
+    }
+    else if (currentWidth > width)
+    {
+      return -1;
+    }
+
+    switch (marker)
+    {
+    case TgxStreamMarker::TGX_MARKER_STREAM_OF_PIXELS:
+      memcpy(target + targetIndex, source + sourceIndex, pixelNumber * 2);
+      sourceIndex += pixelNumber * 2;
+      targetIndex += pixelNumber;
+      totalPixels += pixelNumber;
+      currentWidth += pixelNumber;
+      break;
+    case TgxStreamMarker::TGX_MARKER_REPEATING_PIXELS:
+      for (int i{ 0 }; i < pixelNumber; i++)
+      {
+        target[targetIndex] = ((int16_t*)source)[sourceIndex];
+        targetIndex += 1;
+      }
+      sourceIndex += 2;
+      totalPixels += pixelNumber;
+      currentWidth += pixelNumber;
+      break;
+    case TgxStreamMarker::TGX_MARKER_TRANSPARENT_PIXELS:
+      for (int i{ 0 }; i < pixelNumber; i++)
+      {
+        target[targetIndex] = TRANSPARENT_PIXEL;
+        targetIndex += 1;
+      }
+      totalPixels += pixelNumber;
+      currentWidth += pixelNumber;
+      break;
+    default:
+      return -1;
+    }
+  }
+
+  if (rawPixelSize != totalPixels)
+  {
+    return -1;
+  }
+
+  return totalPixels;
+}
+
 int getFileSize(FILE* file)
 {
   int currentPosition{ ftell(file) };
@@ -34,13 +133,16 @@ int getFileSize(FILE* file)
   return size;
 }
 
+// rebuild with Cpp helpers
 int main(int argc, char* argv[])
 {
-  if (argc != 2)
+  if (argc != 3)
   {
     return 1;
   }
   char* filename{ argv[1] };
+  char* target{ argv[2] };
+
   SimpleFileWrapper file{ fopen(filename, "rb") };
   if (!file.get())
   {
@@ -65,8 +167,21 @@ int main(int argc, char* argv[])
 
     TgxResource* resource{ reinterpret_cast<TgxResource*>(data) };
     resource->base.type = SHCResourceType::SHC_RESOURCE_TGX;
+    resource->dataSize = size - sizeof(TgxHeader);
     resource->header = reinterpret_cast<TgxHeader*>(data + sizeof(TgxResource));
     resource->imageData = reinterpret_cast<uint8_t*>(resource->header) + sizeof(TgxHeader);
+
+    SimpleFileWrapper file{ fopen(target, "wb") };
+    if (!file.get())
+    {
+      free(data);
+      return 1;
+    }
+
+    std::unique_ptr<uint16_t[]> rawPixels{ std::make_unique<uint16_t[]>(resource->header->width * resource->header->height) };
+
+    transformTgxToRaw(resource->imageData, resource->dataSize, rawPixels.get(), resource->header->width, resource->header->height);
+    fwrite(rawPixels.get(), sizeof(uint16_t), resource->header->width * resource->header->height, file.get());
 
     free(data);
   }
