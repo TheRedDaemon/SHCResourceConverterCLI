@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include <memory>
+#include <string>
 
 #include "SHCResourceConverter.h"
 
@@ -56,6 +57,8 @@ struct TgxAnalysis
   int unfinishedWidthPixelCount{ 0 };
   int newlineWithoutMarkerCount{ 0 };
 };
+
+// TODO: maybe clean logical values? Many could be unsigned
 
 TgxToRawResult analyzeTgxToRaw(const uint8_t* source, const int sourceSize, const int expectedWidth, const int expectedHeight, TgxAnalysis* tgxAnalysis)
 {
@@ -215,7 +218,7 @@ TgxToRawResult decodeTgxToRaw(const uint8_t* source, const int sourceSize, const
     case TgxStreamMarker::TGX_MARKER_REPEATING_PIXELS:
       for (const int indexEnd{ targetIndex + pixelNumber }; targetIndex < indexEnd; ++targetIndex)
       {
-        target[targetIndex] = ((int16_t*) source)[sourceIndex];
+        target[targetIndex] = *(int16_t*) (source + sourceIndex);
       }
       sourceIndex += 2;
       break;
@@ -266,7 +269,6 @@ int encodeRawToTgx(const uint16_t* source, const int sourceX, const int sourceY,
       }
       else if (currentWidth < targetWidth - 1 && initialPixel == source[sourceIndex])
       {
-        // TODO?: is there a special handling for the magenta transparent color pixel?
         uint8_t count{ 0 };
         while (currentWidth < targetWidth - 1 && count < 31 && initialPixel == source[sourceIndex])
         {
@@ -283,6 +285,7 @@ int encodeRawToTgx(const uint16_t* source, const int sourceX, const int sourceY,
         }
       }
       else {
+        // TODO?: is there a special handling for the magenta transparent color pixel, since the RGB transform ignores it, but only for stream pixels
         uint16_t pixelBuffer[32];
         pixelBuffer[0] = initialPixel;
         
@@ -293,7 +296,7 @@ int encodeRawToTgx(const uint16_t* source, const int sourceX, const int sourceY,
           ++currentWidth;
         }
 
-        // correct repeat pixels
+        // correct repeating pixels
         if (currentWidth < targetWidth - 1 && pixelBuffer[count] == source[sourceIndex])
         {
           --count;
@@ -370,8 +373,8 @@ int main(int argc, char* argv[])
     resource->header = reinterpret_cast<TgxHeader*>(data + sizeof(TgxResource));
     resource->imageData = reinterpret_cast<uint8_t*>(resource->header) + sizeof(TgxHeader);
 
-    SimpleFileWrapper file{ fopen(target, "wb") };
-    if (!file.get())
+    SimpleFileWrapper outRawFile{ fopen(target, "wb") };
+    if (!outRawFile.get())
     {
       free(data);
       return 1;
@@ -380,11 +383,22 @@ int main(int argc, char* argv[])
     std::unique_ptr<uint16_t[]> rawPixels{ std::make_unique<uint16_t[]>(resource->header->width * 2 * resource->header->height * 2) };
 
     decodeTgxToRaw(resource->imageData, resource->dataSize, resource->header->width, resource->header->height, rawPixels.get(), resource->header->width, resource->header->height, resource->header->width * 2);
-    fwrite(rawPixels.get(), sizeof(uint16_t), resource->header->width * 2 * resource->header->height * 2, file.get());
-
+    fwrite(rawPixels.get(), sizeof(uint16_t), resource->header->width * 2 * resource->header->height * 2, outRawFile.get());
 
     // TODO: test why size is bigger, test in general if valid result
-    int size{ encodeRawToTgx(rawPixels.get(), resource->header->width, resource->header->height, resource->header->width * 2, resource->header->width, resource->header->height, nullptr) };
+    int encodedTgxSize{ encodeRawToTgx(rawPixels.get(), resource->header->width, resource->header->height, resource->header->width * 2, resource->header->width, resource->header->height, nullptr) };
+    std::unique_ptr<uint8_t[]> tgxRaw{ std::make_unique<uint8_t[]>(encodedTgxSize) };
+    encodeRawToTgx(rawPixels.get(), resource->header->width, resource->header->height, resource->header->width * 2, resource->header->width, resource->header->height, tgxRaw.get());
+
+    SimpleFileWrapper outTgxFile{ fopen(std::string(filename).append(".test.tgx").c_str(), "wb") };
+    if (!outTgxFile.get())
+    {
+      free(data);
+      return 1;
+    }
+    fwrite(&resource->header->width, sizeof(uint32_t), 1, outTgxFile.get());
+    fwrite(&resource->header->height, sizeof(uint32_t), 1, outTgxFile.get());
+    fwrite(tgxRaw.get(), sizeof(uint8_t), 8 + static_cast<size_t>(encodedTgxSize), outTgxFile.get());
 
     free(data);
   }
