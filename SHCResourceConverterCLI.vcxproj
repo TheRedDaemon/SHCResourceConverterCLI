@@ -132,9 +132,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="SHCResourceConverterCLI.cpp" />
+    <ClCompile Include="TGXCoder.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SHCResourceConverter.h" />
+    <ClInclude Include="TGXCoder.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

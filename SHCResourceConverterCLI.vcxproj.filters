@@ -18,9 +18,15 @@
     <ClCompile Include="SHCResourceConverterCLI.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="TGXCoder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SHCResourceConverter.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TGXCoder.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

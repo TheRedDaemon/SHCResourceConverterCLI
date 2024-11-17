@@ -5,6 +5,12 @@
 
 /* GAME STRUCTURES AND ENUMS */
 
+enum PixeColorFormat : int32_t
+{
+  ARGB_1555 = 0x555,
+  RGB_565 = 0x565,
+};
+
 enum TgxStreamMarker : uint8_t
 {
   TGX_MARKER_STREAM_OF_PIXELS = 0x0,
@@ -89,6 +95,8 @@ enum SHCResourceType : int
 struct GenericResource
 {
   SHCResourceType type;
+  int resourceSize;
+
 };
 
 struct TgxResource
