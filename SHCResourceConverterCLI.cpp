@@ -14,6 +14,7 @@ constexpr uint16_t TRANSPARENT_PIXEL{ 0 }; // for placing them
 constexpr uint16_t TRANSPARENT_COLOR{ 0b1111100000011111 }; // used by game for some cases (repeating pixels seem excluded?)
 constexpr uint16_t TRANSPARENT_PIXEL_FLAG{ 0x8000 }; // for checking if pixel should be transparent in tgx
 constexpr int TGX_FILE_PIXEL_REPEAT_THRESHOLD{ 3 }; // requires testing with other files
+constexpr int TGX_FILE_PADDING_ALIGNMENT{ 4 }; // requires testing with other files
 
 class SimpleFileWrapper
 {
@@ -355,8 +356,7 @@ int encodeRawToTgx(const uint16_t* source, const int sourceX, const int sourceY,
     sourceIndex += lineJump;
   }
 
-  // TGX file seems to pad to 4 byte alignment
-  for (int requiredPadding{ resultSize % 4 }; requiredPadding > 0; --requiredPadding)
+  for (int requiredPadding{ resultSize % TGX_FILE_PADDING_ALIGNMENT }; requiredPadding > 0; --requiredPadding)
   {
     ++resultSize;
     if (target) target[targetIndex++] = TgxStreamMarker::TGX_MARKER_NEWLINE;
