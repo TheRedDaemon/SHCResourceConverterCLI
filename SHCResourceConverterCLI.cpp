@@ -13,6 +13,7 @@
 constexpr uint16_t TRANSPARENT_PIXEL{ 0 }; // for placing them
 constexpr uint16_t TRANSPARENT_COLOR{ 0b1111100000011111 }; // used by game for some cases (repeating pixels seem excluded?)
 constexpr uint16_t TRANSPARENT_PIXEL_FLAG{ 0x8000 }; // for checking if pixel should be transparent in tgx
+constexpr int TGX_FILE_PIXEL_REPEAT_THRESHOLD{ 3 }; // requires testing with other files
 
 class SimpleFileWrapper
 {
@@ -60,6 +61,9 @@ struct TgxAnalysis
 
 // TODO: maybe clean logical values? Many could be unsigned
 
+// TODO: apperantly, GM files indicate with a flag if alpha is 0 or 1: https://github.com/PodeCaradox/Gm1KonverterCrossPlatform/blob/5b1ade8c38a3ed5a583dcb7ff3d843a12d14b87f/Gm1KonverterCrossPlatform/HelperClasses/Utility.cs#L170
+// this also needs support, also the code might imply that certain format versions short circuit the newline
+
 TgxToRawResult analyzeTgxToRaw(const uint8_t* source, const int sourceSize, const int expectedWidth, const int expectedHeight, TgxAnalysis* tgxAnalysis)
 {
   TgxAnalysis internalTgxAnalysis{};
@@ -77,7 +81,7 @@ TgxToRawResult analyzeTgxToRaw(const uint8_t* source, const int sourceSize, cons
     if (marker == TgxStreamMarker::TGX_MARKER_NEWLINE)
     {
       ++internalTgxAnalysis.markerCountNewline;
-      if (currentWidth <= 0) // there can be multiple newlines, maybe it is padding?
+      if (currentHeight == expectedHeight || currentWidth <= 0) // handle padding at end
       {
         continue;
       }
@@ -200,7 +204,7 @@ TgxToRawResult decodeTgxToRaw(const uint8_t* source, const int sourceSize, const
       targetIndex += lineJump;
       continue;
     }
-    
+
     // could be removed if guarantee is made that all line end with newline markers 
     if (currentWidth == width)
     {
@@ -251,67 +255,97 @@ int encodeRawToTgx(const uint16_t* source, const int sourceX, const int sourceY,
   int targetIndex{ 0 };
   for (int currentHeight{ 0 }; currentHeight < targetHeight; ++currentHeight)
   {
-    for (int currentWidth{ 0 }; currentWidth < targetWidth; ++currentWidth)
+    int currentWidth{ 0 };
+    while (currentWidth < targetWidth)
     {
-      uint16_t initialPixel{ source[sourceIndex++] };
-
-      if (!(initialPixel & TRANSPARENT_PIXEL_FLAG))
+      if (!(source[sourceIndex] & TRANSPARENT_PIXEL_FLAG))
       {
-        uint8_t count{ 0 }; // 0 means one pixel
-        while (currentWidth < targetWidth - 1 && count < 31 && !(source[sourceIndex] & TRANSPARENT_PIXEL_FLAG))
+        uint8_t count{ 0 };
+        while (currentWidth < targetWidth && count < 32 && !(source[sourceIndex] & TRANSPARENT_PIXEL_FLAG))
         {
           ++count;
           ++currentWidth;
           ++sourceIndex;
         }
         ++resultSize;
-        if (target) target[targetIndex++] = TgxStreamMarker::TGX_MARKER_TRANSPARENT_PIXELS | count;
+        if (target) target[targetIndex++] = TgxStreamMarker::TGX_MARKER_TRANSPARENT_PIXELS | (count - 1);
       }
-      else if (currentWidth < targetWidth - 1 && initialPixel == source[sourceIndex])
+      else
       {
-        uint8_t count{ 0 };
-        while (currentWidth < targetWidth - 1 && count < 31 && initialPixel == source[sourceIndex])
-        {
-          ++count;
-          ++currentWidth;
-          ++sourceIndex;
-        }
-        resultSize += 3;
-        if (target)
-        {
-          target[targetIndex++] = TgxStreamMarker::TGX_MARKER_REPEATING_PIXELS | count;
-          *((uint16_t*) (target + targetIndex)) = initialPixel;
-          targetIndex += 2;
-        }
-      }
-      else {
-        // TODO?: is there a special handling for the magenta transparent color pixel, since the RGB transform ignores it, but only for stream pixels
+        // TODO?: is there a special handling for the magenta transparent-marker color pixel, since the RGB transform ignores it, but only for stream pixels?
         uint16_t pixelBuffer[32];
-        pixelBuffer[0] = initialPixel;
-        
+
         uint8_t count{ 0 };
-        while (currentWidth < targetWidth - 1 && count < 31 && (source[sourceIndex] & TRANSPARENT_PIXEL_FLAG) && pixelBuffer[count] != source[sourceIndex])
+        int repeatingPixelCount{ 0 };
+        uint16_t repeatingPixel{ 0 };
+        while (currentWidth < targetWidth && count < 32)
         {
-          pixelBuffer[++count] = source[sourceIndex++];
-          ++currentWidth;
+          uint16_t nextPixel{ source[sourceIndex] };
+          if (!(nextPixel & TRANSPARENT_PIXEL_FLAG))
+          {
+            break;
+          }
+
+          // check if no repeating pixel upcoming, if so, add pixel and continue with loop
+          if (!(currentWidth < targetWidth - 1 && source[sourceIndex + 1] == nextPixel))
+          {
+            pixelBuffer[count] = nextPixel;
+            ++count;
+            ++currentWidth;
+            ++sourceIndex;
+            continue;
+          }
+            
+          while (currentWidth < targetWidth && repeatingPixelCount < 32 && source[sourceIndex] == nextPixel)
+          {
+            ++repeatingPixelCount;
+            ++sourceIndex;
+            ++currentWidth;
+          }
+          if (repeatingPixelCount >= TGX_FILE_PIXEL_REPEAT_THRESHOLD)
+          {
+            repeatingPixel = nextPixel;
+            break;
+          }
+
+          // fix if repeating pixel not long enough for stream
+          int adjustPixel{ count + repeatingPixelCount };
+          if (adjustPixel > 32)
+          {
+            const int reduceSteps{ adjustPixel - 32 };
+            sourceIndex -= reduceSteps;
+            currentWidth -= reduceSteps;
+            adjustPixel = 32;
+          }
+
+          while (count < adjustPixel)
+          {
+            pixelBuffer[count++] = nextPixel;
+          }
+          repeatingPixelCount = 0;
         }
 
-        // correct repeating pixels
-        if (currentWidth < targetWidth - 1 && pixelBuffer[count] == source[sourceIndex])
+        if (count > 0)
         {
-          --count;
-          --sourceIndex;
-          --currentWidth;
+          const int pixelSize{ count * 2 };
+          resultSize += 1 + pixelSize;
+          if (target)
+          {
+            target[targetIndex++] = TgxStreamMarker::TGX_MARKER_STREAM_OF_PIXELS | (count - 1);
+            memcpy(target + targetIndex, pixelBuffer, pixelSize);
+            targetIndex += pixelSize;
+          }
         }
-
-
-        const int pixelSize{ (count + 1) * 2 };
-        resultSize += 1 + pixelSize;
-        if (target)
+        
+        if (repeatingPixelCount > 0)
         {
-          target[targetIndex++] = TgxStreamMarker::TGX_MARKER_STREAM_OF_PIXELS | count;
-          memcpy(target + targetIndex, pixelBuffer, pixelSize);
-          targetIndex += pixelSize;
+          resultSize += 3;
+          if (target)
+          {
+            target[targetIndex++] = TgxStreamMarker::TGX_MARKER_REPEATING_PIXELS | (repeatingPixelCount - 1);
+            *((uint16_t*) (target + targetIndex)) = repeatingPixel;
+            targetIndex += 2;
+          }
         }
       }
     }
@@ -319,7 +353,13 @@ int encodeRawToTgx(const uint16_t* source, const int sourceX, const int sourceY,
     ++resultSize;
     if (target) target[targetIndex++] = TgxStreamMarker::TGX_MARKER_NEWLINE;
     sourceIndex += lineJump;
-    // TODO?: does it need padding at the end
+  }
+
+  // TGX file seems to pad to 4 byte alignment
+  for (int requiredPadding{ resultSize % 4 }; requiredPadding > 0; --requiredPadding)
+  {
+    ++resultSize;
+    if (target) target[targetIndex++] = TgxStreamMarker::TGX_MARKER_NEWLINE;
   }
 
   return resultSize;
@@ -390,15 +430,18 @@ int main(int argc, char* argv[])
     std::unique_ptr<uint8_t[]> tgxRaw{ std::make_unique<uint8_t[]>(encodedTgxSize) };
     encodeRawToTgx(rawPixels.get(), resource->header->width, resource->header->height, resource->header->width * 2, resource->header->width, resource->header->height, tgxRaw.get());
 
-    SimpleFileWrapper outTgxFile{ fopen(std::string(filename).append(".test.tgx").c_str(), "wb") };
-    if (!outTgxFile.get())
+    if (analyzeTgxToRaw(tgxRaw.get(), encodedTgxSize, resource->header->width, resource->header->height, nullptr) == TgxToRawResult::SUCCESS)
     {
-      free(data);
-      return 1;
+      SimpleFileWrapper outTgxFile{ fopen(std::string(filename).append(".test.tgx").c_str(), "wb") };
+      if (!outTgxFile.get())
+      {
+        free(data);
+        return 1;
+      }
+      fwrite(&resource->header->width, sizeof(uint32_t), 1, outTgxFile.get());
+      fwrite(&resource->header->height, sizeof(uint32_t), 1, outTgxFile.get());
+      fwrite(tgxRaw.get(), sizeof(uint8_t), static_cast<size_t>(encodedTgxSize), outTgxFile.get());
     }
-    fwrite(&resource->header->width, sizeof(uint32_t), 1, outTgxFile.get());
-    fwrite(&resource->header->height, sizeof(uint32_t), 1, outTgxFile.get());
-    fwrite(tgxRaw.get(), sizeof(uint8_t), 8 + static_cast<size_t>(encodedTgxSize), outTgxFile.get());
 
     free(data);
   }
