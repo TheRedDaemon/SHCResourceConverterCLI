@@ -1,47 +1,20 @@
-#define _CRT_SECURE_NO_WARNINGS // for tests
 
 #include <memory>
 #include <string>
 #include <vector>
+#include <fstream>
 
 #include "Logger.h"
 
 #include "SHCResourceConverter.h"
 #include "TGXCoder.h"
-
-class SimpleFileWrapper
-{
-private:
-  FILE* file;
-public:
-  SimpleFileWrapper(FILE* file) : file{ file } {};
-  ~SimpleFileWrapper()
-  {
-    if (file)
-    {
-      fclose(file);
-    }
-  }
-  SimpleFileWrapper(const SimpleFileWrapper&) = delete;
-  SimpleFileWrapper& operator=(const SimpleFileWrapper&) = delete;
-
-  FILE* get() { return file; }
-};
-
-int getFileSize(FILE* file)
-{
-  int currentPosition{ ftell(file) };
-  fseek(file, 0L, SEEK_END);
-  int size{ ftell(file) };
-  fseek(file, currentPosition, SEEK_SET);
-  return size;
-}
+#include "BinaryCFileReadHelper.h"
 
 // rebuild with Cpp helpers
 int main(int argc, char* argv[])
 {
   std::vector<std::string> arguments{ argv, argv + argc };
-  Log(LogLevel::TRACE, "{}", arguments.at(0));
+  Log(LogLevel::TRACE, "EXE: {}", arguments.at(0));
 
   if (argc != 3)
   {
@@ -50,12 +23,16 @@ int main(int argc, char* argv[])
   char* filename{ argv[1] };
   char* target{ argv[2] };
 
-  SimpleFileWrapper file{ fopen(filename, "rb") };
-  if (!file.get())
+  BinaryCFileReadHelper fileReader{ filename };
+  if (fileReader.hasInvalidState())
   {
     return 1;
   }
-  int size{ getFileSize(file.get()) };
+  const int size{ fileReader.getSize() };
+  if (size < 0)
+  {
+    return 1;
+  }
 
   char* extension{ strrchr(filename, '.') };
   if (!extension)
@@ -65,24 +42,27 @@ int main(int argc, char* argv[])
 
   if (!strcmp(extension, ".tgx"))
   {
-    char* data{ static_cast<char*>(malloc(sizeof(TgxResource) + size)) };
+    void* data{ malloc(sizeof(TgxResource) + size) };
     if (!data)
     {
       return 1;
     }
-    fread(data + sizeof(TgxResource), sizeof(uint8_t), size, file.get());
-
-    // TODO: extend resource with raw file size and color encoding 
-    TgxResource* resource{ reinterpret_cast<TgxResource*>(data) };
+    std::unique_ptr<TgxResource> resource{ reinterpret_cast<TgxResource*>(data) };
+    fileReader.read(reinterpret_cast<uint8_t*>(resource.get()) + sizeof(TgxResource), sizeof(uint8_t), size);
+    if (fileReader.hasInvalidState())
+    {
+      return 1;
+    }
     resource->base.type = SHCResourceType::SHC_RESOURCE_TGX;
+    resource->base.resourceSize = size;
+    resource->base.colorFormat = PixeColorFormat::ARGB_1555;
     resource->dataSize = size - sizeof(TgxHeader);
-    resource->header = reinterpret_cast<TgxHeader*>(data + sizeof(TgxResource));
+    resource->header = reinterpret_cast<TgxHeader*>(reinterpret_cast<uint8_t*>(resource.get()) + sizeof(TgxResource));
     resource->imageData = reinterpret_cast<uint8_t*>(resource->header) + sizeof(TgxHeader);
 
-    SimpleFileWrapper outRawFile{ fopen(target, "wb") };
-    if (!outRawFile.get())
+    std::ofstream outRawFile{ target, std::ios::binary };
+    if (!outRawFile.is_open())
     {
-      free(data);
       return 1;
     }
 
@@ -92,7 +72,7 @@ int main(int argc, char* argv[])
     rawInfo.data = rawPixels.get();
 
     decodeTgxToRaw(&tgxInfo, &rawInfo, &TGX_FILE_DEFAULT_INSTRUCTION, nullptr);
-    fwrite(rawInfo.data, sizeof(uint16_t), static_cast<size_t>(rawInfo.rawWidth * rawInfo.rawHeight), outRawFile.get());
+    outRawFile.write((char*) rawInfo.data, rawInfo.rawWidth * rawInfo.rawHeight * sizeof(uint16_t));
 
     // TODO: test why size is bigger, test in general if valid result
     tgxInfo.data = nullptr;
@@ -105,31 +85,33 @@ int main(int argc, char* argv[])
     TgxAnalysis tgxAnalyses{};
     if (analyzeTgxToRaw(&tgxInfo, &TGX_FILE_DEFAULT_INSTRUCTION, &tgxAnalyses) == TgxCoderResult::SUCCESS)
     {
-      SimpleFileWrapper outTgxFile{ fopen(std::string(filename).append(".test.tgx").c_str(), "wb") };
-      if (!outTgxFile.get())
+      std::ofstream outTgxFile{ std::string(filename).append(".test.tgx").c_str(), std::ios::binary };
+      if (!outTgxFile.is_open())
       {
-        free(data);
         return 1;
       }
-      fwrite(&resource->header->width, sizeof(uint32_t), 1, outTgxFile.get());
-      fwrite(&resource->header->height, sizeof(uint32_t), 1, outTgxFile.get());
-      fwrite(tgxRaw.get(), sizeof(uint8_t), static_cast<size_t>(tgxInfo.dataSize), outTgxFile.get());
+      outTgxFile.write(reinterpret_cast<char*>(&resource->header->width), sizeof(uint32_t));
+      outTgxFile.write(reinterpret_cast<char*>(&resource->header->height), sizeof(uint32_t));
+      outTgxFile.write(reinterpret_cast<char*>(tgxInfo.data), tgxInfo.dataSize);
     }
-
-    free(data);
   }
   else if (!strcmp(extension, ".gm1"))
   {
-    char* data{ static_cast<char*>(malloc(sizeof(Gm1Resource) + size)) };
+    void* data{ malloc(sizeof(Gm1Resource) + size) };
     if (!data)
     {
       return 1;
+    }   
+    std::unique_ptr<Gm1Resource> resource{ reinterpret_cast<Gm1Resource*>(data) };
+    fileReader.read(reinterpret_cast<uint8_t*>(resource.get()) + sizeof(Gm1Resource), sizeof(uint8_t), size);
+    if (fileReader.hasInvalidState())
+    {
+      return 1;
     }
-    fread(data + sizeof(Gm1Resource), sizeof(uint8_t), size, file.get());
-
-    Gm1Resource* resource{ reinterpret_cast<Gm1Resource*>(data) };
     resource->base.type = SHCResourceType::SHC_RESOURCE_GM1;
-    resource->gm1Header = reinterpret_cast<Gm1Header*>(data + sizeof(Gm1Resource));
+    resource->base.resourceSize = size;
+    resource->base.colorFormat = PixeColorFormat::ARGB_1555;
+    resource->gm1Header = reinterpret_cast<Gm1Header*>(reinterpret_cast<uint8_t*>(resource.get()) + sizeof(Gm1Resource));
     resource->imageOffsets = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(resource->gm1Header) + sizeof(Gm1Header));
     resource->imageSizes = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(resource->imageOffsets) + sizeof(uint32_t) * resource->gm1Header->numberOfPicturesInFile);
     resource->imageHeaders = reinterpret_cast<Gm1ImageHeader*>(reinterpret_cast<uint8_t*>(resource->imageSizes) + sizeof(uint32_t) * resource->gm1Header->numberOfPicturesInFile);
@@ -143,8 +125,6 @@ int main(int argc, char* argv[])
     uint32_t sizeOfDataBasedOnSize{ size - sizeof(Gm1Header) - (2 * sizeof(uint32_t) + sizeof(Gm1ImageHeader) ) * resource->gm1Header->numberOfPicturesInFile };
 
     // validation required? -> Maybe partial read?
-
-    free(data);
   }
   else
   {

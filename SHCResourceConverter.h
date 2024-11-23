@@ -1,5 +1,4 @@
-#ifndef SHC_RESOURCE_CONVERTER_HEADER
-#define SHC_RESOURCE_CONVERTER_HEADER
+#pragma once
 
 #include <stdint.h>
 
@@ -96,7 +95,7 @@ struct GenericResource
 {
   SHCResourceType type;
   int resourceSize;
-
+  PixeColorFormat colorFormat;
 };
 
 struct TgxResource
@@ -116,5 +115,3 @@ struct Gm1Resource
   Gm1ImageHeader* imageHeaders;
   uint8_t* imageData;
 };
-
-#endif //SHC_RESOURCE_CONVERTER_HEADER

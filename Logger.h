@@ -1,5 +1,4 @@
-#ifndef LOGGER_HEADER
-#define LOGGER_HEADER
+#pragma once
 
 #include <iostream>
 #include <array>
@@ -31,5 +30,3 @@ void Log(const LogLevel level, const std::format_string<Args...> fmt, Args&&... 
   std::print(LOG_STREAM, "{:%Y-%m-%d %T %Z} : {} : ", currentTime, LOG_LEVEL_NAMES.at(static_cast<int>(level)));
   std::println(LOG_STREAM, fmt, std::forward<Args>(args)...);
 }
-
-#endif //LOGGER_HEADER

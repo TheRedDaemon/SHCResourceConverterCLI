@@ -1,5 +1,4 @@
-#ifndef TGX_CODER_HEADER
-#define TGX_CODER_HEADER
+#pragma once
 
 #include <stdint.h>
 
@@ -67,7 +66,5 @@ extern "C" __declspec(dllexport) TgxCoderResult analyzeTgxToRaw(const TgxCoderTg
 extern "C" __declspec(dllexport) TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* rawData, const TgxCoderInstruction* instruction, TgxAnalysis* tgxAnalysis);
 
 // fills the dataSize in TgxCoderTgxInfo if data ptr is nullptr and return different result, else it will fill the buffer, but stop if dataSize indicates that the buffer is too small
-// resulting in a broken result, if the buffer size indicated by dataSize is big enough, the dataSize will be set to the actual size
+// resulting in a broken result; if the buffer size indicated by dataSize is big enough, the dataSize will be set to the actual size
 extern "C" __declspec(dllexport) TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* tgxData, const TgxCoderInstruction* instruction);
-
-#endif //TGX_CODER_HEADER
