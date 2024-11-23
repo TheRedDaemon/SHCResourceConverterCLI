@@ -2,6 +2,9 @@
 
 #include <memory>
 #include <string>
+#include <vector>
+
+#include "Logger.h"
 
 #include "SHCResourceConverter.h"
 #include "TGXCoder.h"
@@ -37,6 +40,9 @@ int getFileSize(FILE* file)
 // rebuild with Cpp helpers
 int main(int argc, char* argv[])
 {
+  std::vector<std::string> arguments{ argv, argv + argc };
+  Log(LogLevel::TRACE, "{}", arguments.at(0));
+
   if (argc != 3)
   {
     return 1;
