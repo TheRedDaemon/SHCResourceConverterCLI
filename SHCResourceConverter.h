@@ -21,7 +21,7 @@ enum TgxStreamMarker : uint8_t
   TGX_PIXEL_NUMBER = 0x1f,
 };
 
-struct TgxHeader
+struct alignas(int32_t) TgxHeader
 {
   int32_t width;
   int32_t height;
@@ -40,7 +40,7 @@ enum class Gm1Type : int32_t
 };
 
 // source: https://github.com/PodeCaradox/Gm1KonverterCrossPlatform/blob/master/Gm1KonverterCrossPlatform/Files/GM1FileHeader.cs
-struct Gm1Header
+struct alignas(int32_t) Gm1Header
 {
   uint32_t unknownField1;
   uint32_t unknownField2;
@@ -69,7 +69,7 @@ struct Gm1Header
 
 
 // source: https://github.com/PodeCaradox/Gm1KonverterCrossPlatform/blob/master/Gm1KonverterCrossPlatform/Files/TGXImageHeader.cs
-struct Gm1ImageHeader
+struct alignas(int32_t) Gm1ImageHeader
 {
   uint16_t width;
   uint16_t height;

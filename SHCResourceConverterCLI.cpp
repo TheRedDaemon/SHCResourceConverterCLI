@@ -5,10 +5,26 @@
 #include <fstream>
 
 #include "Logger.h"
+#include "Utility.h"
 
 #include "SHCResourceConverter.h"
 #include "TGXCoder.h"
 #include "BinaryCFileReadHelper.h"
+
+
+/*
+  GENERAL INFO:
+  Certain parts use a C-like structure, since the it is also partially intended to experiment for
+  potential UCP3 modules. Since the provided APIs by modules are C-like and it is not clear which parts
+  will make it into a modules, the use of C-like structures is arbitrary.
+
+  Note for modules:
+  - C-like APIs should never throw
+  - Memory control should be handled by one module, since passing around structures is error-prone
+  - never mix malloc/free with new/delete and the later never with their array versions
+*/
+
+// TODO: C like APIs should never throw
 
 // rebuild with Cpp helpers
 int main(int argc, char* argv[])
@@ -23,12 +39,13 @@ int main(int argc, char* argv[])
   char* filename{ argv[1] };
   char* target{ argv[2] };
 
-  BinaryCFileReadHelper fileReader{ filename };
-  if (fileReader.hasInvalidState())
+  // test
+  auto fileReader{ createWithAdditionalMemory<BinaryCFileReadHelper>(100, filename) };
+  if (fileReader->hasInvalidState())
   {
     return 1;
   }
-  const int size{ fileReader.getSize() };
+  const int size{ fileReader->getSize() };
   if (size < 0)
   {
     return 1;
@@ -42,14 +59,9 @@ int main(int argc, char* argv[])
 
   if (!strcmp(extension, ".tgx"))
   {
-    void* data{ malloc(sizeof(TgxResource) + size) };
-    if (!data)
-    {
-      return 1;
-    }
-    std::unique_ptr<TgxResource> resource{ reinterpret_cast<TgxResource*>(data) };
-    fileReader.read(reinterpret_cast<uint8_t*>(resource.get()) + sizeof(TgxResource), sizeof(uint8_t), size);
-    if (fileReader.hasInvalidState())
+    auto resource{ createWithAdditionalMemory<TgxResource>(size) };
+    fileReader->read(reinterpret_cast<uint8_t*>(resource.get()) + sizeof(TgxResource), sizeof(uint8_t), size);
+    if (fileReader->hasInvalidState())
     {
       return 1;
     }
@@ -97,14 +109,9 @@ int main(int argc, char* argv[])
   }
   else if (!strcmp(extension, ".gm1"))
   {
-    void* data{ malloc(sizeof(Gm1Resource) + size) };
-    if (!data)
-    {
-      return 1;
-    }   
-    std::unique_ptr<Gm1Resource> resource{ reinterpret_cast<Gm1Resource*>(data) };
-    fileReader.read(reinterpret_cast<uint8_t*>(resource.get()) + sizeof(Gm1Resource), sizeof(uint8_t), size);
-    if (fileReader.hasInvalidState())
+    auto resource{ createWithAdditionalMemory<Gm1Resource>(size) };
+    fileReader->read(reinterpret_cast<uint8_t*>(resource.get()) + sizeof(Gm1Resource), sizeof(uint8_t), size);
+    if (fileReader->hasInvalidState())
     {
       return 1;
     }
