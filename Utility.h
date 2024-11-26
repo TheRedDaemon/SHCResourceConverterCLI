@@ -14,17 +14,39 @@ struct ObjectWithAdditionalMemoryDeleter
     }
     catch (...)
     {
-      ::operator delete(p);
+      if constexpr (alignof(T) > __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+      {
+        ::operator delete(p, std::align_val_t{ alignof(T) });
+      }
+      else
+      {
+        ::operator delete(p);
+      }
       throw;
     }
-    ::operator delete(p);
+    if constexpr (alignof(T) > __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+    {
+      ::operator delete(p, std::align_val_t{ alignof(T) });
+    }
+    else
+    {
+      ::operator delete(p);
+    }
   };
 };
 
 template<typename T, class... Args>
 std::unique_ptr<T, ObjectWithAdditionalMemoryDeleter<T>> createWithAdditionalMemory(size_t additionalBytes, Args&&... args)
 {
-  void* data{ ::operator new(sizeof(T) + additionalBytes) };
+  void* data;
+  if constexpr (alignof(T) > __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+  {
+    data = ::operator new(sizeof(T) + additionalBytes, std::align_val_t{ alignof(T) });
+  }
+  else
+  {
+    data = ::operator new(sizeof(T) + additionalBytes);
+  }
   try
   {
     return std::unique_ptr<T, ObjectWithAdditionalMemoryDeleter<T>>{ new (data) T(std::forward<Args>(args)...) };
