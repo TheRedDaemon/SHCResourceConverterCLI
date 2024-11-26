@@ -132,11 +132,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="BinaryCFileReadHelper.cpp" />
+    <ClCompile Include="CLI.cpp" />
     <ClCompile Include="SHCResourceConverterCLI.cpp" />
     <ClCompile Include="TGXCoder.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BinaryCFileReadHelper.h" />
+    <ClInclude Include="CLI.h" />
     <ClInclude Include="Logger.h" />
     <ClInclude Include="SHCResourceConverter.h" />
     <ClInclude Include="TGXCoder.h" />

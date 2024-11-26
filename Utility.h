@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <memory>
 
+/* Smart ptr of object with additional memory */
+
 template<typename T>
 struct ObjectWithAdditionalMemoryDeleter
 {
