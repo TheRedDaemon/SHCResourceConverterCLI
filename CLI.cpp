@@ -2,17 +2,48 @@
 
 #include "Logger.h"
 
-CLIArguments::CLIArguments(int argc, char* argv[])
+CLIArguments::CLIArguments()
 {
-  std::vector<std::string> args{ argv, argv + argc };
+}
+
+CLIArguments::CLIArguments(std::string& executionPath) : executionPath{ std::move(executionPath) }
+{
+}
+
+CLIArguments::CLIArguments(std::string& executionPath, std::vector<std::string>& arguments,
+  std::unordered_map<std::string, std::string>& options)
+  : executionPath{ std::move(executionPath) }, arguments{ std::move(arguments) }, options{ std::move(options) }
+{
+}
+
+CLIArguments CLIArguments::parse(int argc, char* argv[])
+{
+  if (argc < 1)
+  {
+    return {};
+  }
+
+  std::string executionPath{ argv[0] };
+  if (argc < 2)
+  {
+    return CLIArguments{ executionPath };
+  }
+
+  std::vector<std::string> args{ argv + 1, argv + argc };
+
+  std::vector<std::string> arguments;
+  std::unordered_map<std::string, std::string> options;
+
   std::string* pendingOption{ nullptr };
   for (std::string& arg : args)
   {
+    // first value should be the executable
+
     if (arg.starts_with(OPTION_PREFIX))
     {
       if (pendingOption)
       {
-        Log(LogLevel::WARNING, "Incomplete options param '{}'. Ignored.", *pendingOption);
+        Log(LogLevel::WARNING, "CLIArguments: Incomplete options param '{}'. Ignored.", *pendingOption);
       }
       pendingOption = &arg;
       continue;
@@ -30,12 +61,19 @@ CLIArguments::CLIArguments(int argc, char* argv[])
   }
   if (pendingOption)
   {
-    Log(LogLevel::WARNING, "Incomplete options param '{}'. Ignored.", *pendingOption);
+    Log(LogLevel::WARNING, "CLIArguments: Incomplete options param '{}'. Ignored.", *pendingOption);
   }
+
+  return CLIArguments{ executionPath, arguments, options };
 }
 
 CLIArguments::~CLIArguments()
 {
+}
+
+const std::string& CLIArguments::getExecutionPath() const
+{
+  return executionPath;
 }
 
 const std::string* CLIArguments::getArgument(int index) const

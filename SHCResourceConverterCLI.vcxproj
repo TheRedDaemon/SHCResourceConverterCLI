@@ -141,6 +141,7 @@
     <ClInclude Include="CLI.h" />
     <ClInclude Include="Logger.h" />
     <ClInclude Include="SHCResourceConverter.h" />
+    <ClInclude Include="SHCResourceHeaderConverterCLI.h" />
     <ClInclude Include="TGXCoder.h" />
     <ClInclude Include="Utility.h" />
   </ItemGroup>

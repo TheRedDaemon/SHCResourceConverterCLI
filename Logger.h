@@ -3,6 +3,7 @@
 #include <iostream>
 #include <array>
 #include <chrono>
+#include <unordered_map>
 
 enum class LogLevel : int
 {
@@ -13,12 +14,12 @@ enum class LogLevel : int
   ERROR = 4,
 };
 
-inline constexpr std::array<std::pair<LogLevel, const char*>, 5> LOG_LEVEL_ARRAY{
- std::make_pair(LogLevel::TRACE, "TRACE"),
- std::make_pair(LogLevel::DEBUG, "DEBUG"),
- std::make_pair(LogLevel::INFO ,"INFO"),
- std::make_pair(LogLevel::WARNING, "WARNING"),
- std::make_pair(LogLevel::ERROR, "ERROR")
+inline const std::unordered_map<LogLevel, const char*> LOG_LEVEL_MAP{
+  { LogLevel::TRACE, "TRACE" },
+  { LogLevel::DEBUG, "DEBUG" },
+  { LogLevel::INFO, "INFO" },
+  { LogLevel::WARNING, "WARNING" },
+  { LogLevel::ERROR, "ERROR" }
 };
 
 inline std::ostream& LOG_STREAM{ std::clog };
@@ -33,6 +34,6 @@ void Log(const LogLevel level, const std::format_string<Args...> fmt, Args&&... 
     return;
   }
   const std::chrono::zoned_time currentTime{ std::chrono::current_zone(), std::chrono::system_clock::now() };
-  std::print(LOG_STREAM, "{:%Y-%m-%d %T %Z} : {} : ", currentTime, std::get<const char*>(LOG_LEVEL_ARRAY.at(static_cast<int>(level))));
+  std::print(LOG_STREAM, "{:%Y-%m-%d %T %Z} : {} : ", currentTime, LOG_LEVEL_MAP.at(level));
   std::println(LOG_STREAM, fmt, std::forward<Args>(args)...);
 }

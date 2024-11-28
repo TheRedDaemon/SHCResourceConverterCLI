@@ -13,12 +13,21 @@ const std::string OPTION_PREFIX{ "--" };
 class CLIArguments
 {
 private:
-  std::vector<std::string> arguments;
-  std::unordered_map<std::string, std::string> options;
+  const std::string executionPath{};
+  const std::vector<std::string> arguments{};
+  const std::unordered_map<std::string, std::string> options{};
+
+  // args are always consumed and moved out of the provided objects
+  CLIArguments();
+  CLIArguments(std::string& executionPath);
+  CLIArguments(std::string& executionPath, std::vector<std::string>& arguments,
+    std::unordered_map<std::string, std::string>& options);
 public:
-  CLIArguments(int argc, char* argv[]);
   ~CLIArguments();
 
+  static CLIArguments parse(int argc, char* argv[]);
+
+  const std::string& getExecutionPath() const;
   const std::string* getArgument(int index) const;
   const std::string* getOption(const std::string& option) const;
 

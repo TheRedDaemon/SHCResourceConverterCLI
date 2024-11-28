@@ -153,7 +153,7 @@ TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* r
       {
         for (const int indexEnd{ targetIndex + tgxData->tgxWidth - currentWidth }; targetIndex < indexEnd; ++targetIndex)
         {
-          rawData->data[targetIndex] = instruction->transparentPixel;
+          rawData->data[targetIndex] = instruction->transparentPixelRawColor;
         }
       }
 
@@ -186,7 +186,7 @@ TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* r
     case TgxStreamMarker::TGX_MARKER_TRANSPARENT_PIXELS:
       for (const int indexEnd{ targetIndex + pixelNumber }; targetIndex < indexEnd; ++targetIndex)
       {
-        rawData->data[targetIndex] = instruction->transparentPixel;
+        rawData->data[targetIndex] = instruction->transparentPixelRawColor;
       }
       break;
     }
@@ -221,7 +221,7 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
     {
       uint8_t count{ 0 };
 
-      while (xIndex < tgxData->tgxWidth && count < 32 && !(rawData->data[sourceIndex] & instruction->transparentPixelFlag))
+      while (xIndex < tgxData->tgxWidth && count < 32 && rawData->data[sourceIndex] == instruction->transparentPixelRawColor)
       {
         ++count;
         ++xIndex;
@@ -248,7 +248,7 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
       while (xIndex < tgxData->tgxWidth && count < 32)
       {
         uint16_t nextPixel{ rawData->data[sourceIndex] };
-        if (!(nextPixel & instruction->transparentPixelFlag))
+        if (nextPixel == instruction->transparentPixelRawColor)
         {
           break;
         }

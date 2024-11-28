@@ -1,9 +1,10 @@
 
 #include <string>
 #include <memory>
-#include <string>
 #include <vector>
 #include <fstream>
+
+#include "SHCResourceHeaderConverterCLI.h"
 
 #include "Logger.h"
 #include "Utility.h"
@@ -42,11 +43,11 @@ double doubleFromStr(const std::string& str)
 
 LogLevel logLevelFromStr(const std::string& str)
 {
-  for (const auto& level : LOG_LEVEL_ARRAY)
+  for (const auto& [level, name] : LOG_LEVEL_MAP)
   {
-    if (str == std::get<const char*>(level))
+    if (str == name)
     {
-      return std::get<LogLevel>(level);
+      return level;
     }
   }
   throw std::invalid_argument("Unable to find fitting log level for string.");
@@ -57,17 +58,17 @@ int main(int argc, char* argv[])
 {
   try
   {
-    const CLIArguments cliArguments{ argc, argv };
+    const CLIArguments cliArguments{ CLIArguments::parse(argc, argv) };
 
-    const std::optional<LogLevel> logLevel{ cliArguments.getOptionAs<logLevelFromStr>("log") };
+    const std::optional<LogLevel> logLevel{ cliArguments.getOptionAs<logLevelFromStr>(OPTION::LOG) };
     if (logLevel)
     {
       currentLogLevel = *logLevel;
-      Log(LogLevel::DEBUG, "Setting log level to {}.", std::get<const char*>(LOG_LEVEL_ARRAY.at(static_cast<int>(currentLogLevel))));
+      Log(LogLevel::DEBUG, "Setting log level to {}.", LOG_LEVEL_MAP.at(currentLogLevel));
     }
     else
     {
-      Log(LogLevel::INFO, "No log level provided, defaulting to {}.", std::get<const char*>(LOG_LEVEL_ARRAY.at(static_cast<int>(currentLogLevel))));
+      Log(LogLevel::INFO, "No log level provided, defaulting to {}.", LOG_LEVEL_MAP.at(currentLogLevel));
     }
 
     if (argc != 3)
