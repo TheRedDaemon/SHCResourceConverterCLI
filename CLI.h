@@ -61,4 +61,29 @@ public:
 
   CLIArguments(const CLIArguments&) = delete;
   CLIArguments& operator=(const CLIArguments&) = delete;
+
+  friend struct std::formatter<CLIArguments>;
+};
+
+template<>
+struct std::formatter<CLIArguments> : public std::formatter<std::string>
+{
+  template<typename FormatContext>
+  auto format(const CLIArguments& args, FormatContext& ctx) const
+  {
+    auto out = ctx.out();
+    out = format_to(out, "Execution Path:\n\t{}\nArguments:\n", args.getExecutionPath());
+    for (const auto& arg : args.arguments)
+    {
+      out = format_to(out, "\t{}\n", arg);
+    }
+    out = format_to(out, "Options:\n");
+    int i = 0;
+    for (const auto& [key, arg] : args.options)
+    {
+      ++i;
+      out = i < args.options.size() ? format_to(out, "\t{} : {}\n", key, arg) : format_to(out, "\t{} : {}", key, arg);
+    }
+    return out;
+  }
 };

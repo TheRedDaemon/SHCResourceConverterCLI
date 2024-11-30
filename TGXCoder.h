@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <format>
 
 enum class TgxCoderResult
 {
@@ -51,6 +52,72 @@ struct TgxAnalysis
   int markerCountNewline{ 0 };
   int unfinishedWidthPixelCount{ 0 };
   int newlineWithoutMarkerCount{ 0 };
+};
+
+template<>
+struct std::formatter<TgxCoderRawInfo> : public std::formatter<std::string>
+{
+  template<typename FormatContext>
+  auto format(const TgxCoderRawInfo& args, FormatContext& ctx) const
+  {
+    return format_to(ctx.out(), "Raw Width: {}\nRaw Height: {}\nRaw X: {}\nRaw Y: {}", args.rawWidth, args.rawHeight, args.rawX, args.rawY);
+  }
+};
+
+template<>
+struct std::formatter<TgxCoderTgxInfo> : public std::formatter<std::string>
+{
+  template<typename FormatContext>
+  auto format(const TgxCoderTgxInfo& args, FormatContext& ctx) const
+  {
+    return format_to(ctx.out(), "Data Size: {}\nTGX Width: {}\nTGX Height: {}", args.dataSize, args.tgxWidth, args.tgxHeight);
+  }
+};
+
+template<>
+struct std::formatter<TgxCoderInstruction> : public std::formatter<std::string>
+{
+  template<typename FormatContext>
+  auto format(const TgxCoderInstruction& args, FormatContext& ctx) const
+  {
+    return format_to(ctx.out(),
+      "Transparent Pixel TGX Color: {:#06x}\n"
+      "Transparent Pixel Raw Color: {:#06x}\n"
+      "Pixel Repeat Threshold: {}\n"
+      "Padding Alignment: {}",
+      args.transparentPixelTgxColor,
+      args.transparentPixelRawColor,
+      args.pixelRepeatThreshold,
+      args.paddingAlignment);
+  }
+};
+
+template<>
+struct std::formatter<TgxAnalysis> : public std::formatter<std::string>
+{
+  template<typename FormatContext>
+  auto format(const TgxAnalysis& args, FormatContext& ctx) const
+  {
+    return format_to(ctx.out(),
+      "Marker Count Pixel Stream: {}\n"
+      "Pixel Stream Pixel Count: {}\n"
+      "Marker Count Transparent: {}\n"
+      "Transparent Pixel Count: {}\n"
+      "Marker Count Repeating Pixels: {}\n"
+      "Repeating Pixels Pixel Count: {}\n"
+      "Marker Count Newline: {}\n"
+      "Unfinished Width Pixel Count: {}\n"
+      "Newline Without Marker Count: {}",
+      args.markerCountPixelStream,
+      args.pixelStreamPixelCount,
+      args.markerCountTransparent,
+      args.transparentPixelCount,
+      args.markerCountRepeatingPixels,
+      args.repeatingPixelsPixelCount,
+      args.markerCountNewline,
+      args.unfinishedWidthPixelCount,
+      args.newlineWithoutMarkerCount);
+  }
 };
 
 // TODO: check if the change to the complete marker works

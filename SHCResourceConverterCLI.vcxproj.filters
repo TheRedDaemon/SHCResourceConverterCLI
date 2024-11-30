@@ -47,8 +47,5 @@
     <ClInclude Include="CLI.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SHCResourceHeaderConverterCLI.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>
