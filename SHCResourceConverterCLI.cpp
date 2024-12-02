@@ -13,6 +13,9 @@
 #include "TGXCoder.h"
 #include "BinaryCFileReadHelper.h"
 
+// only test, TODO: clean
+#include "ResourceMetaFormat.h"
+
 
 /*
   GENERAL INFO:
@@ -186,6 +189,27 @@ int main(int argc, char* argv[])
 
     // TODO: remove, debug space
 
+    std::istringstream testStream{ R"(
+      # this is a comment
+
+      RESOURCE_META_HEADER 1 # this is a comment
+      : key 1 = value 1# this is a comment
+      :=# this is a comment
+      - list entry 1
+      - list entry 2  # this is a comment
+      -# this is a comment
+
+      # this is a comment
+
+      OBJECT    1
+      :   key 1=value   1
+      :key 2=value 2
+      -    list entry 1
+      -list entry 2
+      -list entry 3)" 
+    };
+
+    const ResourceMetaFileReader reader{ ResourceMetaFileReader::parseFrom(testStream) };
 
     const std::string* sourceStr{ cliArguments.getArgument(1) };
     const std::string* targetStr{ cliArguments.getArgument(2) };

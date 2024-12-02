@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <memory>
+#include <string>
 
 /* Smart ptr of object with additional memory */
 
@@ -59,3 +60,9 @@ std::unique_ptr<T, ObjectWithAdditionalMemoryDeleter<T>> createWithAdditionalMem
     throw;
   }
 }
+
+/* String helpers */
+
+void trimLeadingWhitespaceInPlace(std::string& str);
+void trimTrailingWhitespaceInPlace(std::string& str);
+void trimLeadingAndTrailingWhitespaceInPlace(std::string& str);

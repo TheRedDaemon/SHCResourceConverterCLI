@@ -136,6 +136,7 @@
     <ClCompile Include="ResourceMetaFormat.cpp" />
     <ClCompile Include="SHCResourceConverterCLI.cpp" />
     <ClCompile Include="TGXCoder.cpp" />
+    <ClCompile Include="Utility.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BinaryCFileReadHelper.h" />
