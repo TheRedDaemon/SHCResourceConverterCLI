@@ -138,6 +138,10 @@ namespace ResourceMetaFormat
           trimLeadingAndTrailingWhitespaceInPlace(key);
           std::string value{ line.substr(mapSeparatorIndex + sizeof(MARKER::MAP_SEPARATOR_CHARACTER)) };
           trimLeadingAndTrailingWhitespaceInPlace(value);
+          if (mapEntries.contains(key))
+          {
+            Log(LogLevel::WARNING, "Encountered map entry line with duplicate key '{}'. Overwriting previous value.", key);
+          }
           mapEntries.insert_or_assign(std::move(key), std::move(value));
         }
         else
@@ -228,17 +232,95 @@ namespace ResourceMetaFormat
   }
 
 
+  /* ResourceMetaObjectWriter */
+
+  ResourceMetaFileWriter::ResourceMetaObjectWriter::ResourceMetaObjectWriter(ResourceMetaFileWriter& parent) : parent{ parent }, active{ false }
+  {
+  }
+
+  ResourceMetaFileWriter::ResourceMetaObjectWriter::~ResourceMetaObjectWriter()
+  {
+  }
+
+  int ResourceMetaFileWriter::ResourceMetaObjectWriter::getFormatVersion() const
+  {
+    return parent.formatVersion;
+  }
+
+  bool ResourceMetaFileWriter::ResourceMetaObjectWriter::isObjectActive() const
+  {
+    return active;
+  }
+
+  bool ResourceMetaFileWriter::ResourceMetaObjectWriter::isFileActive() const
+  {
+    return parent.isFileActive();
+  }
+
+  ResourceMetaFileWriter::ResourceMetaObjectWriter& ResourceMetaFileWriter::ResourceMetaObjectWriter::startObject(
+    std::string_view identifier, int version, std::string_view comment)
+  {
+    parent.validateFileActive();
+    parent.validateObjectInactive();
+    parent.validateStreamState();
+
+    active = true;
+    parent.internalStream << identifier << MARKER::SPACE_CHARACTER << version;
+    parent.internalWriteComment(comment, true);
+    parent.internalStream << MARKER::NEWLINE_CHARACTER;
+    return *this;
+  }
+
+  ResourceMetaFileWriter::ResourceMetaObjectWriter& ResourceMetaFileWriter::ResourceMetaObjectWriter::writeListEntry(
+    std::string_view entry, std::string_view comment)
+  {
+    parent.validateFileActive();
+    parent.validateObjectActive();
+    parent.validateStreamState();
+
+    parent.internalStream << MARKER::LIST_ITEM_CHARACTER << MARKER::SPACE_CHARACTER << entry;
+    parent.internalWriteComment(comment, true);
+    parent.internalStream << MARKER::NEWLINE_CHARACTER;
+    return *this;
+  }
+
+  ResourceMetaFileWriter::ResourceMetaObjectWriter& ResourceMetaFileWriter::ResourceMetaObjectWriter::writeMapEntry(
+    std::string_view key, std::string_view value, std::string_view comment)
+  {
+    parent.validateFileActive();
+    parent.validateObjectActive();
+    parent.validateStreamState();
+
+    parent.internalStream << MARKER::MAP_ITEM_CHARACTER << MARKER::SPACE_CHARACTER << key
+      << MARKER::SPACE_CHARACTER << MARKER::MAP_SEPARATOR_CHARACTER << MARKER::SPACE_CHARACTER << value;
+    parent.internalWriteComment(comment, true);
+    parent.internalStream << MARKER::NEWLINE_CHARACTER;
+    return *this;
+  }
+
+  ResourceMetaFileWriter& ResourceMetaFileWriter::ResourceMetaObjectWriter::endObject(std::string_view comment)
+  {
+    parent.validateFileActive();
+    parent.validateObjectActive();
+    parent.validateStreamState();
+
+    parent.internalWriteComment(comment, false);
+    parent.internalStream << MARKER::NEWLINE_CHARACTER;
+    active = false;
+    return parent;
+  }
+
+
   /* ResourceMetaFileWriter */
 
   ResourceMetaFileWriter::ResourceMetaFileWriter(std::ostream& stream, int formatVersion)
-    : formatVersion(formatVersion), internalStream(stream), objectActive(false), fileActive(true)
+    : formatVersion{ formatVersion }, internalStream{ stream }, active{ true }, headerPlaced{ false }, writerObject{ *this }
   {
-    startObject(IDENTIFIER::RESOURCE_META_HEADER, VERSION::HEADER);
   }
 
   void ResourceMetaFileWriter::validateObjectActive() const
   {
-    if (!objectActive)
+    if (!isObjectActive())
     {
       throw std::ios::failure("Object is not active.");
     }
@@ -246,7 +328,7 @@ namespace ResourceMetaFormat
 
   void ResourceMetaFileWriter::validateObjectInactive() const
   {
-    if (objectActive)
+    if (isObjectActive())
     {
       throw std::ios::failure("Object is still active.");
     }
@@ -254,7 +336,7 @@ namespace ResourceMetaFormat
 
   void ResourceMetaFileWriter::validateFileActive() const
   {
-    if (!fileActive)
+    if (!isFileActive())
     {
       throw std::ios::failure("File is not active.");
     }
@@ -289,18 +371,18 @@ namespace ResourceMetaFormat
   {
     try
     {
-      if (objectActive)
+      if (isObjectActive())
       {
-        endObject();
+        writerObject.endObject();
       }
-      if (fileActive)
+      if (isFileActive())
       {
         endFile();
       }
     }
     catch (const std::exception& ex)
     {
-      Log(LogLevel::ERROR, "Encountered error during clean up of ResourceMetaFileWriter. File might be in and invalid state: {}", ex.what());
+      Log(LogLevel::ERROR, "Encountered error during clean up of ResourceMetaFileWriter. File might be in an invalid state: {}", ex.what());
     }
   }
 
@@ -309,60 +391,35 @@ namespace ResourceMetaFormat
     return formatVersion;
   }
 
-  bool ResourceMetaFileWriter::hasObjectActive() const
+  bool ResourceMetaFileWriter::isObjectActive() const
   {
-    return objectActive;
+    return writerObject.isObjectActive();
   }
 
-  ResourceMetaFileWriter& ResourceMetaFileWriter::startObject(std::string_view identifier, int version, std::string_view comment)
+  bool ResourceMetaFileWriter::isFileActive() const
   {
-    validateFileActive();
-    validateObjectInactive();
-    validateStreamState();
-
-    objectActive = true;
-    internalStream << identifier << MARKER::SPACE_CHARACTER << version;
-    internalWriteComment(comment, true);
-    internalStream << MARKER::NEWLINE_CHARACTER;
-    return *this;
+    return active;
   }
 
-  ResourceMetaFileWriter& ResourceMetaFileWriter::writeListEntry(std::string_view entry, std::string_view comment)
+  ResourceMetaFileWriter::ResourceMetaObjectWriter& ResourceMetaFileWriter::startHeader(std::string_view comment)
   {
-    validateFileActive();
-    validateObjectActive();
-    validateStreamState();
-
-    internalStream << MARKER::LIST_ITEM_CHARACTER << MARKER::SPACE_CHARACTER << entry;
-    internalWriteComment(comment, true);
-    internalStream << MARKER::NEWLINE_CHARACTER;
-    return *this;
+    if (headerPlaced)
+    {
+      throw std::ios::failure("Header already placed.");
+    }
+    headerPlaced = true;
+    return writerObject.startObject(IDENTIFIER::RESOURCE_META_HEADER, VERSION::HEADER, comment);
+  }
+  ResourceMetaFileWriter::ResourceMetaObjectWriter& ResourceMetaFileWriter::startObject(std::string_view identifier, int version, std::string_view comment)
+  {
+    if (!headerPlaced)
+    {
+      throw std::ios::failure("Header has not been written yet. Can not create object.");
+    }
+    return writerObject.startObject(identifier, version, comment);
   }
 
-  ResourceMetaFileWriter& ResourceMetaFileWriter::writeMapEntry(std::string_view key, std::string_view value, std::string_view comment)
-  {
-    validateFileActive();
-    validateObjectActive();
-    validateStreamState();
-
-    internalStream << MARKER::MAP_ITEM_CHARACTER << MARKER::SPACE_CHARACTER << key
-      << MARKER::SPACE_CHARACTER << MARKER::MAP_SEPARATOR_CHARACTER << MARKER::SPACE_CHARACTER << value;
-    internalWriteComment(comment, true);
-    internalStream << MARKER::NEWLINE_CHARACTER;
-    return *this;
-  }
-
-  void ResourceMetaFileWriter::endObject()
-  {
-    validateFileActive();
-    validateObjectActive();
-    validateStreamState();
-
-    internalStream << MARKER::NEWLINE_CHARACTER;
-    objectActive = false;
-  }
-
-  void ResourceMetaFileWriter::writeComment(std::string_view comment)
+  ResourceMetaFileWriter& ResourceMetaFileWriter::newline(std::string_view comment)
   {
     validateFileActive();
     validateObjectInactive();
@@ -370,14 +427,14 @@ namespace ResourceMetaFormat
 
     internalWriteComment(comment, false);
     internalStream << MARKER::NEWLINE_CHARACTER;
-    objectActive = false;
+    return *this;
   }
 
   void ResourceMetaFileWriter::endFile()
   {
     validateFileActive();
     // does not need to validate stream, since inactive
-    fileActive = false; // nothing special to do here, only complete the file
+    active = false; // nothing special to do here, only complete the file
   }
 
   ResourceMetaFileWriter ResourceMetaFileWriter::startFile(std::ostream& stream, int formatVersion)

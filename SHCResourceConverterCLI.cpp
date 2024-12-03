@@ -189,20 +189,6 @@ int main(int argc, char* argv[])
 
     // TODO: remove, debug space
 
-    std::stringstream streamTest;
-    ResourceMetaFormat::ResourceMetaFileWriter writer{ ResourceMetaFormat::ResourceMetaFileWriter::startFile(streamTest, ResourceMetaFormat::VERSION::CURRENT) };
-    writer
-      .writeMapEntry("key 1", "value 1")
-      .writeMapEntry("key 1", "value 1", "")
-      .endObject();
-    writer.startObject("Object", 1, "Test")
-      .writeMapEntry("key 2", "value 2", "Test")
-      .writeListEntry("list entry 1", "Test")
-      .endObject();
-    writer.endFile();
-
-    const ResourceMetaFormat::ResourceMetaFileReader reader{ ResourceMetaFormat::ResourceMetaFileReader::parseFrom(streamTest) };
-
     const std::string* sourceStr{ cliArguments.getArgument(1) };
     const std::string* targetStr{ cliArguments.getArgument(2) };
     const std::string* argNumCheck{ cliArguments.getArgument(3) };
@@ -214,6 +200,27 @@ int main(int argc, char* argv[])
     }
     const std::filesystem::path source{ sourceStr->c_str() };
     const std::filesystem::path target{ targetStr->c_str() };
+
+    std::fstream streamTest{ "test.txt", std::ios::out | std::ios::trunc | std::ios::in };
+    ResourceMetaFormat::ResourceMetaFileWriter::startFile(streamTest, ResourceMetaFormat::VERSION::CURRENT)
+      .newline("Test Comment")
+      .startHeader("Test Header")
+      .writeMapEntry("key 1", "value 1")
+      .writeMapEntry("key 1", "value 1", "")
+      .endObject()
+      .newline("Comment")
+      .newline()
+      .startObject("Object", 1, "Test")
+      .writeMapEntry("key 2", "value 2", "Test")
+      .writeListEntry("list entry 1", "Test")
+      .endObject("End object comment")
+      .newline("Comment")
+      .newline()
+      .endFile();
+    streamTest.flush();
+    streamTest.seekg(0);
+
+    const ResourceMetaFormat::ResourceMetaFileReader reader{ ResourceMetaFormat::ResourceMetaFileReader::parseFrom(streamTest) };
 
     // test
     auto fileReader{ createWithAdditionalMemory<BinaryCFileReadHelper>(100, source.string().c_str() ) };

@@ -138,10 +138,37 @@ namespace ResourceMetaFormat
   class ResourceMetaFileWriter
   {
   private:
+    class ResourceMetaObjectWriter
+    {
+    private:
+      ResourceMetaFileWriter& parent;
+      bool active;
+
+      ResourceMetaObjectWriter& startObject(std::string_view identifier, int version, std::string_view comment = HELPER::EMPTY_STRING_VIEW);
+
+      explicit ResourceMetaObjectWriter(ResourceMetaFileWriter& parent);
+    public:
+      ~ResourceMetaObjectWriter();
+
+      int getFormatVersion() const;
+      bool isObjectActive() const;
+      bool isFileActive() const;
+
+      ResourceMetaObjectWriter& writeListEntry(std::string_view entry, std::string_view comment = HELPER::EMPTY_STRING_VIEW);
+      ResourceMetaObjectWriter& writeMapEntry(std::string_view key, std::string_view value, std::string_view comment = HELPER::EMPTY_STRING_VIEW);
+      ResourceMetaFileWriter& endObject(std::string_view comment = HELPER::EMPTY_STRING_VIEW);
+    
+      ResourceMetaObjectWriter(const ResourceMetaObjectWriter&) = delete;
+      ResourceMetaObjectWriter& operator=(const ResourceMetaObjectWriter&) = delete;
+
+      friend class ResourceMetaFileWriter;
+    };
+
     const int formatVersion;
     std::ostream& internalStream;
-    bool objectActive;
-    bool fileActive;
+    bool active;
+    bool headerPlaced;
+    ResourceMetaObjectWriter writerObject;
 
     void validateObjectActive() const;
     void validateObjectInactive() const;
@@ -156,14 +183,12 @@ namespace ResourceMetaFormat
     ~ResourceMetaFileWriter();
 
     int getFormatVersion() const;
-    bool hasObjectActive() const;
+    bool isObjectActive() const;
+    bool isFileActive() const;
 
-    ResourceMetaFileWriter& startObject(std::string_view identifier, int version, std::string_view comment = HELPER::EMPTY_STRING_VIEW);
-    ResourceMetaFileWriter& writeListEntry(std::string_view entry, std::string_view comment = HELPER::EMPTY_STRING_VIEW);
-    ResourceMetaFileWriter& writeMapEntry(std::string_view key, std::string_view value, std::string_view comment = HELPER::EMPTY_STRING_VIEW);
-    void endObject();
-
-    void writeComment(std::string_view comment);
+    ResourceMetaObjectWriter& startHeader(std::string_view comment = HELPER::EMPTY_STRING_VIEW);
+    ResourceMetaObjectWriter& startObject(std::string_view identifier, int version, std::string_view comment = HELPER::EMPTY_STRING_VIEW);
+    ResourceMetaFileWriter& newline(std::string_view comment = HELPER::EMPTY_STRING_VIEW);
     void endFile();
 
     // stream reference will be kept until the end of the file creation
