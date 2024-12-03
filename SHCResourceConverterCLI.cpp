@@ -189,27 +189,19 @@ int main(int argc, char* argv[])
 
     // TODO: remove, debug space
 
-    std::istringstream testStream{ R"(
-      # this is a comment
+    std::stringstream streamTest;
+    ResourceMetaFormat::ResourceMetaFileWriter writer{ ResourceMetaFormat::ResourceMetaFileWriter::startFile(streamTest, ResourceMetaFormat::VERSION::CURRENT) };
+    writer
+      .writeMapEntry("key 1", "value 1")
+      .writeMapEntry("key 1", "value 1", "")
+      .endObject();
+    writer.startObject("Object", 1, "Test")
+      .writeMapEntry("key 2", "value 2", "Test")
+      .writeListEntry("list entry 1", "Test")
+      .endObject();
+    writer.endFile();
 
-      RESOURCE_META_HEADER 1 # this is a comment
-      : key 1 = value 1# this is a comment
-      :=# this is a comment
-      - list entry 1
-      - list entry 2  # this is a comment
-      -# this is a comment
-
-      # this is a comment
-
-      OBJECT    1
-      :   key 1=value   1
-      :key 2=value 2
-      -    list entry 1
-      -list entry 2
-      -list entry 3)" 
-    };
-
-    const ResourceMetaFileReader reader{ ResourceMetaFileReader::parseFrom(testStream) };
+    const ResourceMetaFormat::ResourceMetaFileReader reader{ ResourceMetaFormat::ResourceMetaFileReader::parseFrom(streamTest) };
 
     const std::string* sourceStr{ cliArguments.getArgument(1) };
     const std::string* targetStr{ cliArguments.getArgument(2) };

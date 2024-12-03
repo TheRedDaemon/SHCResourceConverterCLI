@@ -44,74 +44,132 @@
  */
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <unordered_map>
 
-namespace VERSION
+namespace ResourceMetaFormat
 {
-  inline constexpr int HEADER{ 1 };
-  inline constexpr int CURRENT{ 1 };
+  namespace VERSION
+  {
+    inline constexpr int HEADER{ 1 };
+    inline constexpr int CURRENT{ 1 };
+  }
+
+  namespace MARKER
+  {
+    inline constexpr char SPACE_CHARACTER{ ' ' };
+    inline constexpr char COMMENT_CHARACTER{ '#' };
+    inline constexpr char LIST_ITEM_CHARACTER{ '-' };
+    inline constexpr char MAP_ITEM_CHARACTER{ ':' };
+    inline constexpr char MAP_SEPARATOR_CHARACTER{ '=' };
+    inline constexpr char NEWLINE_CHARACTER{ '\n' };
+  }
+
+  namespace IDENTIFIER
+  {
+    inline const std::string RESOURCE_META_HEADER{ "RESOURCE_META_HEADER" };
+  }
+
+  namespace FILE
+  {
+    inline const std::string FILE_EXTENSION{ ".meta" };
+  }
+
+  namespace HELPER
+  {
+    inline constexpr std::string_view EMPTY_STRING_VIEW;
+  }
+
+  class ResourceMetaObjectReader
+  {
+  private:
+    std::string identifier;
+    int version;
+    std::vector<std::string> listEntries;
+    std::unordered_map<std::string, std::string> mapEntries;
+
+    explicit ResourceMetaObjectReader(std::string&& identifier, int version, std::vector<std::string>&& listEntries, std::unordered_map<std::string, std::string>&& mapEntries);
+
+    static std::string extractMeaningfulLine(std::istream& stream);
+  public:
+    ~ResourceMetaObjectReader();
+
+    const std::string& getIdentifier() const;
+    int getVersion() const;
+    const std::vector<std::string>& getListEntries() const;
+    const std::unordered_map<std::string, std::string>& getMapEntries() const;
+
+    // expects to start from the identifier
+    static ResourceMetaObjectReader parseFrom(std::istream& stream, int formatVersion);
+
+    ResourceMetaObjectReader(ResourceMetaObjectReader&& resourceMetaObject) = default;
+    ResourceMetaObjectReader& operator=(ResourceMetaObjectReader&& resourceMetaObject) = default;
+
+    ResourceMetaObjectReader(const ResourceMetaObjectReader&) = delete;
+    ResourceMetaObjectReader& operator=(const ResourceMetaObjectReader&) = delete;
+  };
+
+  class ResourceMetaFileReader
+  {
+  private:
+    ResourceMetaObjectReader header;
+    std::vector<ResourceMetaObjectReader> objects;
+
+    explicit ResourceMetaFileReader(ResourceMetaObjectReader&& header, std::vector<ResourceMetaObjectReader>&& objects);
+
+    // returns true if a new object was found
+    static bool consumeTillObject(std::istream& stream);
+  public:
+    ~ResourceMetaFileReader();
+
+    const ResourceMetaObjectReader& getHeader() const;
+    const std::vector<ResourceMetaObjectReader>& getObjects() const;
+
+    static ResourceMetaFileReader parseFrom(std::istream& stream);
+
+    ResourceMetaFileReader(ResourceMetaFileReader&& resourceMetaFile) = default;
+    ResourceMetaFileReader& operator=(ResourceMetaFileReader&& resourceMetaFile) = default;
+
+    ResourceMetaFileReader(const ResourceMetaFileReader&) = delete;
+    ResourceMetaFileReader& operator=(const ResourceMetaFileReader&) = delete;
+  };
+
+  class ResourceMetaFileWriter
+  {
+  private:
+    const int formatVersion;
+    std::ostream& internalStream;
+    bool objectActive;
+    bool fileActive;
+
+    void validateObjectActive() const;
+    void validateObjectInactive() const;
+    void validateFileActive() const;
+    void validateStreamState() const;
+
+    // does not add a new line
+    void internalWriteComment(std::string_view comment, bool prefixSpace);
+
+    explicit ResourceMetaFileWriter(std::ostream& stream, int formatVersion);
+  public:
+    ~ResourceMetaFileWriter();
+
+    int getFormatVersion() const;
+    bool hasObjectActive() const;
+
+    ResourceMetaFileWriter& startObject(std::string_view identifier, int version, std::string_view comment = HELPER::EMPTY_STRING_VIEW);
+    ResourceMetaFileWriter& writeListEntry(std::string_view entry, std::string_view comment = HELPER::EMPTY_STRING_VIEW);
+    ResourceMetaFileWriter& writeMapEntry(std::string_view key, std::string_view value, std::string_view comment = HELPER::EMPTY_STRING_VIEW);
+    void endObject();
+
+    void writeComment(std::string_view comment);
+    void endFile();
+
+    // stream reference will be kept until the end of the file creation
+    static ResourceMetaFileWriter startFile(std::ostream& stream, int formatVersion = VERSION::CURRENT);
+
+    ResourceMetaFileWriter(const ResourceMetaFileWriter&) = delete;
+    ResourceMetaFileWriter& operator=(const ResourceMetaFileWriter&) = delete;
+  };
 }
-
-namespace MARKER
-{ 
-  inline constexpr char SPACE_CHARACTER{ ' ' };
-  inline constexpr char COMMENT_CHARACTER{ '#' };
-  inline constexpr char LIST_ITEM_CHARACTER{ '-' };
-  inline constexpr char MAP_ITEM_CHARACTER{ ':' };
-  inline constexpr char MAP_SEPARATOR_CHARACTER{ '=' };
-}
-
-namespace IDENTIFIER
-{
-  inline const std::string RESOURCE_META_HEADER{ "RESOURCE_META_HEADER" };
-}
-
-class ResourceMetaObjectReader
-{
-private:
-  std::string identifier;
-  int version;
-  std::vector<std::string> listEntries;
-  std::unordered_map<std::string, std::string> mapEntries;
-
-  explicit ResourceMetaObjectReader(std::string&& identifier, int version, std::vector<std::string>&& listEntries, std::unordered_map<std::string, std::string>&& mapEntries);
-
-  static std::string extractMeaningfulLine(std::istream& stream);
-public:
-  ~ResourceMetaObjectReader();
-
-  const std::string& getIdentifier() const;
-  int getVersion() const;
-
-  // expects to start from the identifier
-  static ResourceMetaObjectReader parseFrom(std::istream& stream, int formatVersion);
-
-  ResourceMetaObjectReader(ResourceMetaObjectReader&& resourceMetaObject) = default;
-  ResourceMetaObjectReader& operator=(ResourceMetaObjectReader&& resourceMetaObject) = default;
-
-  ResourceMetaObjectReader(const ResourceMetaObjectReader&) = delete;
-  ResourceMetaObjectReader& operator=(const ResourceMetaObjectReader&) = delete;
-};
-
-class ResourceMetaFileReader
-{
-private:
-  ResourceMetaObjectReader header;
-  std::vector<ResourceMetaObjectReader> objects;
-
-  explicit ResourceMetaFileReader(ResourceMetaObjectReader&& header, std::vector<ResourceMetaObjectReader>&& objects);
-
-  // returns true if a new object was found
-  static bool consumeTillObject(std::istream& stream);
-public:
-  ~ResourceMetaFileReader();
-
-  static ResourceMetaFileReader parseFrom(std::istream& stream);
-
-  ResourceMetaFileReader(ResourceMetaFileReader&& resourceMetaFile) = default;
-  ResourceMetaFileReader& operator=(ResourceMetaFileReader&& resourceMetaFile) = default;
-
-  ResourceMetaFileReader(const ResourceMetaFileReader&) = delete;
-  ResourceMetaFileReader& operator=(const ResourceMetaFileReader&) = delete;
-};
