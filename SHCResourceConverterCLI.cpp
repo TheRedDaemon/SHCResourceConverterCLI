@@ -155,7 +155,7 @@ static int executeText(const CLIArguments& cliArguments)
     case PathNameType::TGX_FILE:
     {
       Log(LogLevel::INFO, "Try testing provided TGX file path.");
-      const std::unique_ptr<TgxResource> tgxResource{ TGXFile::loadTgxResource(source) };
+      const TGXFile::UniqueTgxResourcePointer tgxResource{ TGXFile::loadTgxResource(source) };
       if (!tgxResource)
       {
         return 1;
@@ -166,7 +166,7 @@ static int executeText(const CLIArguments& cliArguments)
     case PathNameType::GM1_FILE:
     {
       Log(LogLevel::INFO, "Try testing provided GM1 file path.");
-      const std::unique_ptr<Gm1Resource> gm1Resource{ GM1File::loadGm1Resource(source) };
+      const GM1File::UniqueGm1ResourcePointer gm1Resource{ GM1File::loadGm1Resource(source) };
       if (!gm1Resource)
       {
         return 1;
@@ -183,7 +183,7 @@ static int executeText(const CLIArguments& cliArguments)
   }
   catch (const std::exception& e)
   {
-    Log(LogLevel::ERROR, "Encountered exception during file test: {}.", e.what());
+    Log(LogLevel::ERROR, "Encountered exception during file test: {}", e.what());
     return 1;
   }
 }
@@ -216,7 +216,7 @@ static int executeExtract(const CLIArguments& cliArguments)
     case PathNameType::TGX_FILE:
     {
       Log(LogLevel::INFO, "Try extracting provided TGX file.");
-      const std::unique_ptr<TgxResource> tgxResource{ TGXFile::loadTgxResource(source) };
+      const TGXFile::UniqueTgxResourcePointer tgxResource{ TGXFile::loadTgxResource(source) };
       if (!tgxResource)
       {
         return 1;
@@ -227,7 +227,7 @@ static int executeExtract(const CLIArguments& cliArguments)
     case PathNameType::GM1_FILE:
     {
       Log(LogLevel::INFO, "Try extracting provided GM1 file.");
-      const std::unique_ptr<Gm1Resource> gm1Resource{ GM1File::loadGm1Resource(source) };
+      const GM1File::UniqueGm1ResourcePointer gm1Resource{ GM1File::loadGm1Resource(source) };
       if (!gm1Resource)
       {
         return 1;
@@ -244,7 +244,7 @@ static int executeExtract(const CLIArguments& cliArguments)
   }
   catch (const std::exception& e)
   {
-    Log(LogLevel::ERROR, "Encountered exception during file extract: {}.", e.what());
+    Log(LogLevel::ERROR, "Encountered exception during file extract: {}", e.what());
     return 1;
   }
 }
@@ -277,7 +277,7 @@ static int executePack(const CLIArguments& cliArguments)
     case PathNameType::TGX_FILE:
     {
       Log(LogLevel::INFO, "Try packing provided TGX folder.");
-      const std::unique_ptr<TgxResource> tgxResource{ TGXFile::loadTgxResourceFromRaw(source) };
+      const TGXFile::UniqueTgxResourcePointer tgxResource{ TGXFile::loadTgxResourceFromRaw(source) };
       if (!tgxResource)
       {
         return 1;
@@ -288,7 +288,7 @@ static int executePack(const CLIArguments& cliArguments)
     case PathNameType::GM1_FILE:
     {
       Log(LogLevel::INFO, "Try packing provided GM1 folder.");
-      const std::unique_ptr<Gm1Resource> gm1Resource{ GM1File::loadGm1ResourceFromRaw(source) };
+      const GM1File::UniqueGm1ResourcePointer gm1Resource{ GM1File::loadGm1ResourceFromRaw(source) };
       if (!gm1Resource)
       {
         return 1;
@@ -305,7 +305,7 @@ static int executePack(const CLIArguments& cliArguments)
   }
   catch (const std::exception& e)
   {
-    Log(LogLevel::ERROR, "Encountered exception during file pack: {}.", e.what());
+    Log(LogLevel::ERROR, "Encountered exception during file pack: {}", e.what());
     return 1;
   }
 }
@@ -365,6 +365,8 @@ int main(int argc, char* argv[])
       printHelp();
       return 1;
     }
+
+    return 0;
 
     // TODO: remove, debug space
 

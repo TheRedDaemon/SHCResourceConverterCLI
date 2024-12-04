@@ -7,7 +7,7 @@ namespace GM1File
     throw std::exception{ "Not yet implemented." };
   }
 
-  std::unique_ptr<Gm1Resource> loadGm1Resource(const std::filesystem::path& file)
+  UniqueGm1ResourcePointer loadGm1Resource(const std::filesystem::path& file)
   {
     throw std::exception{ "Not yet implemented." };
   }
@@ -17,7 +17,7 @@ namespace GM1File
     throw std::exception{ "Not yet implemented." };
   }
 
-  std::unique_ptr<Gm1Resource> loadGm1ResourceFromRaw(const std::filesystem::path& folder)
+  UniqueGm1ResourcePointer loadGm1ResourceFromRaw(const std::filesystem::path& folder)
   {
     throw std::exception{ "Not yet implemented." };
   }

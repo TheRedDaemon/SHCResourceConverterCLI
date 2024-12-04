@@ -103,3 +103,4 @@ UInt uintFromStr(const std::string& str)
   }
   return static_cast<UInt>(result);
 }
+

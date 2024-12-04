@@ -94,14 +94,14 @@ enum SHCResourceType : int
 struct GenericResource
 {
   SHCResourceType type;
-  int resourceSize;
+  uint32_t resourceSize;
   PixeColorFormat colorFormat;
 };
 
 struct TgxResource
 {
   GenericResource base;
-  int dataSize;
+  uint32_t dataSize;
   TgxHeader* header;
   uint8_t* imageData;
 };
