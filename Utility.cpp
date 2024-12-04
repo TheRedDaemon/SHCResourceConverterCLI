@@ -1,5 +1,6 @@
 #include "Utility.h"
 
+/* string trim */
 // source for trim: https://stackoverflow.com/a/217605
 
 void trimLeadingWhitespaceInPlace(std::string& str)
@@ -16,4 +17,18 @@ void trimLeadingAndTrailingWhitespaceInPlace(std::string& str)
 {
   trimTrailingWhitespaceInPlace(str);
   trimLeadingWhitespaceInPlace(str);
+}
+
+/* Value from String helper */
+
+LogLevel logLevelFromStr(const std::string& str)
+{
+  for (const auto& [level, name] : LOG_LEVEL_MAP)
+  {
+    if (str == name)
+    {
+      return level;
+    }
+  }
+  throw std::invalid_argument("Unable to find fitting log level for string.");
 }

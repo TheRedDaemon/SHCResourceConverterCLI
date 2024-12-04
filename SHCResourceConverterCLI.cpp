@@ -54,32 +54,6 @@ namespace OPTION
   inline const std::string TGX_CODER_PADDING_ALIGNMENT{ "tgx-coder-padding-alignment" };
 }
 
-static int intFromStr(const std::string& str)
-{
-  return std::stoi(str);
-}
-static uint16_t uint16FromStr(const std::string& str)
-{
-  unsigned long result{ std::stoul(str) };
-  if (result > std::numeric_limits<uint16_t>::max())
-  {
-    throw std::out_of_range("Value is out of range.");
-  }
-  return static_cast<uint16_t>(result);
-}
-
-static LogLevel logLevelFromStr(const std::string& str)
-{
-  for (const auto& [level, name] : LOG_LEVEL_MAP)
-  {
-    if (str == name)
-    {
-      return level;
-    }
-  }
-  throw std::invalid_argument("Unable to find fitting log level for string.");
-}
-
 static void setLogLevelFromCliOption(const CLIArguments& cliArguments)
 {
   const std::optional<LogLevel> logLevel{ cliArguments.getOptionAs<logLevelFromStr>(OPTION::LOG) };
@@ -97,10 +71,10 @@ static void setLogLevelFromCliOption(const CLIArguments& cliArguments)
 static TgxCoderInstruction getCoderInstructionFromCliOptionsWithFallback(const CLIArguments& cliArguments)
 {
   return TgxCoderInstruction{
-    cliArguments.getOptionAs<uint16FromStr>(OPTION::TGX_CODER_TRANSPARENT_PIXEL_TGX_COLOR).value_or(TGX_FILE_DEFAULT_INSTRUCTION.transparentPixelTgxColor),
-    cliArguments.getOptionAs<uint16FromStr>(OPTION::TGX_CODER_TRANSPARENT_PIXEL_RAW_COLOR).value_or(TGX_FILE_DEFAULT_INSTRUCTION.transparentPixelRawColor),
-    cliArguments.getOptionAs<intFromStr>(OPTION::TGX_CODER_PIXEL_REPEAT_THRESHOLD).value_or(TGX_FILE_DEFAULT_INSTRUCTION.pixelRepeatThreshold),
-    cliArguments.getOptionAs<intFromStr>(OPTION::TGX_CODER_PADDING_ALIGNMENT).value_or(TGX_FILE_DEFAULT_INSTRUCTION.paddingAlignment)
+    cliArguments.getOptionAs<uintFromStr<uint16_t>>(OPTION::TGX_CODER_TRANSPARENT_PIXEL_TGX_COLOR).value_or(TGX_FILE_DEFAULT_INSTRUCTION.transparentPixelTgxColor),
+    cliArguments.getOptionAs<uintFromStr<uint16_t>>(OPTION::TGX_CODER_TRANSPARENT_PIXEL_RAW_COLOR).value_or(TGX_FILE_DEFAULT_INSTRUCTION.transparentPixelRawColor),
+    cliArguments.getOptionAs<intFromStr<int>>(OPTION::TGX_CODER_PIXEL_REPEAT_THRESHOLD).value_or(TGX_FILE_DEFAULT_INSTRUCTION.pixelRepeatThreshold),
+    cliArguments.getOptionAs<intFromStr<int>>(OPTION::TGX_CODER_PADDING_ALIGNMENT).value_or(TGX_FILE_DEFAULT_INSTRUCTION.paddingAlignment)
   };
 }
 
@@ -188,6 +162,8 @@ int main(int argc, char* argv[])
     }
 
     // TODO: remove, debug space
+
+    const uint8_t testByte{ uintFromStr<uint8_t, 2, 15, 99>("10101111") };
 
     const std::string* sourceStr{ cliArguments.getArgument(1) };
     const std::string* targetStr{ cliArguments.getArgument(2) };

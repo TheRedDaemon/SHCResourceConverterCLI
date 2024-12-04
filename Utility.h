@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Logger.h"
+
 #include <stdint.h>
 #include <memory>
 #include <string>
@@ -66,3 +68,41 @@ std::unique_ptr<T, ObjectWithAdditionalMemoryDeleter<T>> createWithAdditionalMem
 void trimLeadingWhitespaceInPlace(std::string& str);
 void trimTrailingWhitespaceInPlace(std::string& str);
 void trimLeadingAndTrailingWhitespaceInPlace(std::string& str);
+
+/* Value from String helper */
+
+template<typename Int = int, int base = 0, // auto-detect base by default
+  Int min = std::numeric_limits<Int>::min(), Int max = std::numeric_limits<Int>::max()>
+Int intFromStr(const std::string& str)
+{
+  size_t countOfUsedChars{ 0 };
+  const long long result{ std::stoll(str, &countOfUsedChars, base) };
+  if (countOfUsedChars != str.size())
+  {
+    throw std::invalid_argument("Number does not fill given string.");
+  }
+  if (result > max || result < min)
+  {
+    throw std::out_of_range("Value is out of range.");
+  }
+  return static_cast<Int>(result);
+}
+
+template<typename UInt = unsigned int, int base = 0, // auto-detect base by default
+  UInt min = std::numeric_limits<UInt>::min(), UInt max = std::numeric_limits<UInt>::max()>
+UInt uintFromStr(const std::string& str)
+{
+  size_t countOfUsedChars{ 0 };
+  const unsigned long long result{ std::stoull(str, &countOfUsedChars, base) };
+  if (countOfUsedChars != str.size())
+  {
+    throw std::invalid_argument("Number does not fill given string.");
+  }
+  if (result > max || result < min)
+  {
+    throw std::out_of_range("Value is out of range.");
+  }
+  return static_cast<UInt>(result);
+}
+
+LogLevel logLevelFromStr(const std::string& str);

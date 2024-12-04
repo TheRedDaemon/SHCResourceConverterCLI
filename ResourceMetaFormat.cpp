@@ -102,12 +102,7 @@ namespace ResourceMetaFormat
       int version{ 0 };
       try
       {
-        size_t countOfUsedVersionChars{ 0 };
-        version = std::stoi(versionString, &countOfUsedVersionChars);
-        if (countOfUsedVersionChars != versionString.size())
-        {
-          throw std::ios::failure("Version in identifier line is not a valid integer.");
-        }
+        version = intFromStr(versionString);
       }
       catch (const std::exception& ex)
       {
