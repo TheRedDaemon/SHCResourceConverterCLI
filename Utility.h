@@ -1,10 +1,9 @@
 #pragma once
 
-#include "Logger.h"
-
 #include <stdint.h>
 #include <memory>
 #include <string>
+#include <stdexcept>
 
 /* Smart ptr of object with additional memory */
 
@@ -104,5 +103,3 @@ UInt uintFromStr(const std::string& str)
   }
   return static_cast<UInt>(result);
 }
-
-LogLevel logLevelFromStr(const std::string& str);
