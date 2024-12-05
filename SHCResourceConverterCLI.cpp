@@ -95,15 +95,17 @@ static void setLogLevelFromCliOption(const CLIArguments& cliArguments)
   }
 }
 
-// TODO: consider placement of coder instruction pass-through
+
 static TgxCoderInstruction getCoderInstructionFromCliOptionsWithFallback(const CLIArguments& cliArguments)
 {
-  return TgxCoderInstruction{
+  TgxCoderInstruction coderInstruction{
     cliArguments.getOptionAs<uintFromStr<uint16_t>>(OPTION::TGX_CODER_TRANSPARENT_PIXEL_TGX_COLOR).value_or(TGX_FILE_DEFAULT_INSTRUCTION.transparentPixelTgxColor),
     cliArguments.getOptionAs<uintFromStr<uint16_t>>(OPTION::TGX_CODER_TRANSPARENT_PIXEL_RAW_COLOR).value_or(TGX_FILE_DEFAULT_INSTRUCTION.transparentPixelRawColor),
     cliArguments.getOptionAs<intFromStr<int>>(OPTION::TGX_CODER_PIXEL_REPEAT_THRESHOLD).value_or(TGX_FILE_DEFAULT_INSTRUCTION.pixelRepeatThreshold),
     cliArguments.getOptionAs<intFromStr<int>>(OPTION::TGX_CODER_PADDING_ALIGNMENT).value_or(TGX_FILE_DEFAULT_INSTRUCTION.paddingAlignment)
   };
+  Log(LogLevel::DEBUG, "General TGX Coder Instructions:\n{}", coderInstruction);
+  return coderInstruction;
 }
 
 static PathNameType determinePathNameType(const std::filesystem::path& path)
@@ -160,7 +162,8 @@ static int executeText(const CLIArguments& cliArguments)
       {
         return 1;
       }
-      TGXFile::validateTgxResource(*tgxResource);
+
+      TGXFile::validateTgxResource(*tgxResource, getCoderInstructionFromCliOptionsWithFallback(cliArguments));
     }
     break;
     case PathNameType::GM1_FILE:
@@ -335,8 +338,6 @@ int main(int argc, char* argv[])
       return 0;
     }
 
-    const TgxCoderInstruction coderInstruction{ getCoderInstructionFromCliOptionsWithFallback(cliArguments) };
-    Log(LogLevel::DEBUG, "General TGX Coder Instructions:\n{}", coderInstruction);
     if (COMMAND::TEST == *command)
     {
       const int result{ executeText(cliArguments) };
@@ -449,6 +450,7 @@ int main(int argc, char* argv[])
       std::unique_ptr<uint16_t[]> rawPixels{ std::make_unique<uint16_t[]>(static_cast<size_t>(rawInfo.rawWidth * rawInfo.rawHeight)) };
       rawInfo.data = rawPixels.get();
 
+      const TgxCoderInstruction coderInstruction{ getCoderInstructionFromCliOptionsWithFallback(cliArguments) };
       decodeTgxToRaw(&tgxInfo, &rawInfo, &coderInstruction, nullptr);
       outRawFile.write((char*) rawInfo.data, rawInfo.rawWidth * rawInfo.rawHeight * sizeof(uint16_t));
 

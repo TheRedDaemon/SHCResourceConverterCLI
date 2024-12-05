@@ -3,6 +3,7 @@
 #include "SHCResourceConverter.h"
 
 #include "Utility.h"
+#include "TgxCoder.h"
 
 #include <memory>
 #include <filesystem>
@@ -15,7 +16,7 @@ namespace TGXFile
   inline constexpr std::uintmax_t MIN_FILE_SIZE{ sizeof(TgxHeader) }; // guess
   inline constexpr std::uintmax_t MAX_FILE_SIZE{ std::numeric_limits<uint32_t>::max() }; // setting limit
 
-  void validateTgxResource(const TgxResource& resource);
+  void validateTgxResource(const TgxResource& resource, const TgxCoderInstruction& instructions);
 
   UniqueTgxResourcePointer loadTgxResource(const std::filesystem::path& file);
   void saveTgxResource(const std::filesystem::path& file, const TgxResource& resource);

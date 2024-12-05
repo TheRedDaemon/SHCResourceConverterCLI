@@ -22,7 +22,7 @@ TgxCoderResult analyzeTgxToRaw(const TgxCoderTgxInfo* tgxData, const TgxCoderIns
   int currentWidth{ 0 };
   int currentHeight{ 0 };
 
-  int sourceIndex{ 0 };
+  uint32_t sourceIndex{ 0 };
   while (sourceIndex < tgxData->dataSize)
   {
     const TgxStreamMarker marker{ static_cast<TgxStreamMarker>(tgxData->data[sourceIndex] & TgxStreamMarker::TGX_PIXEL_MARKER) };
@@ -32,8 +32,9 @@ TgxCoderResult analyzeTgxToRaw(const TgxCoderTgxInfo* tgxData, const TgxCoderIns
     if (marker == TgxStreamMarker::TGX_MARKER_NEWLINE)
     {
       if (tgxAnalysis) ++tgxAnalysis->markerCountNewline;
-      if (currentHeight == tgxData->tgxHeight || currentWidth <= 0) // handle padding at end
+      if (currentWidth <= 0 && currentHeight == tgxData->tgxHeight) // handle padding at end
       {
+        if (tgxAnalysis) ++tgxAnalysis->paddingNewlineMarkerCount;
         continue;
       }
 
@@ -134,8 +135,9 @@ TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* r
   }
 
   int currentWidth{ 0 };
+  int currentHeight{ 0 }; // only required to properly handle padding
   int targetIndex{ rawData->rawX + rawData->rawWidth * rawData->rawY };
-  for (int sourceIndex{ 0 }; sourceIndex < tgxData->dataSize;)
+  for (uint32_t sourceIndex{ 0 }; sourceIndex < tgxData->dataSize;)
   {
     const TgxStreamMarker marker{ static_cast<TgxStreamMarker>(tgxData->data[sourceIndex] & TgxStreamMarker::TGX_PIXEL_MARKER) };
     const int pixelNumber{ (tgxData->data[sourceIndex] & TgxStreamMarker::TGX_PIXEL_NUMBER) + 1 }; // 0 means one pixel, like an index
@@ -143,7 +145,7 @@ TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* r
 
     if (marker == TgxStreamMarker::TGX_MARKER_NEWLINE)
     {
-      if (currentWidth <= 0)
+      if (currentWidth <= 0 && currentHeight == tgxData->tgxHeight)
       {
         continue;
       }
@@ -157,7 +159,8 @@ TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* r
         }
       }
 
-      currentWidth = 0;
+      currentWidth = 0; 
+      currentHeight += 1;
       targetIndex += lineJump;
       continue;
     }
@@ -166,6 +169,7 @@ TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* r
     if (currentWidth == tgxData->tgxWidth)
     {
       currentWidth = 0;
+      currentHeight += 1;
       targetIndex += lineJump;
     }
 
@@ -211,7 +215,7 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
 
   // TODO: test and clean up
 
-  int resultSize{ 0 };
+  uint32_t resultSize{ 0 };
   int sourceIndex{ rawData->rawX + rawData->rawWidth * rawData->rawY };
   int targetIndex{ 0 };
   for (int yIndex{ 0 }; yIndex < tgxData->tgxHeight; ++yIndex)
@@ -325,7 +329,7 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
     sourceIndex += lineJump;
   }
 
-  const int requiredPadding{ resultSize % instruction->paddingAlignment };
+  const uint32_t requiredPadding{ resultSize % instruction->paddingAlignment };
   resultSize += requiredPadding;
   if (tgxData->data)
   {
@@ -333,7 +337,7 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
     {
       return TgxCoderResult::INVALID_TGX_DATA_SIZE;
     }
-    for (int i{ 0 }; i < requiredPadding; ++i)
+    for (uint32_t i{ 0 }; i < requiredPadding; ++i)
     {
       tgxData->data[targetIndex++] = TgxStreamMarker::TGX_MARKER_NEWLINE;
     }

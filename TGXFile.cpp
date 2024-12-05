@@ -6,9 +6,49 @@
 
 namespace TGXFile
 {
-  void validateTgxResource(const TgxResource& resource)
+  void validateTgxResource(const TgxResource& resource, const TgxCoderInstruction& instructions)
   {
-    throw std::exception{ "Not yet implemented." };
+    Log(LogLevel::INFO, "Try validating given resource.");
+    
+    const TgxCoderTgxInfo tgxInfo{
+      .data{ resource.imageData },
+      .dataSize{ resource.dataSize },
+      .tgxWidth{ resource.header->width },
+      .tgxHeight{ resource.header->height }
+    };
+    Log(LogLevel::INFO, "General TGX info:\n{}", tgxInfo);
+
+    TgxAnalysis tgxAnalysis{};
+    const TgxCoderResult result{ analyzeTgxToRaw(&tgxInfo, &instructions, &tgxAnalysis) };
+    if (result == TgxCoderResult::SUCCESS)
+    {
+      Log(LogLevel::INFO, "Structure meta data:\n{}", tgxAnalysis);
+      Log(LogLevel::INFO, "Validation completed successfully.");
+      return;
+    }
+
+    switch (result)
+    {
+    case TgxCoderResult::WIDTH_TOO_BIG:
+      Log(LogLevel::WARNING, "Decoding had line with bigger width than said in header.");
+      break;
+    case TgxCoderResult::HEIGHT_TOO_BIG:
+      Log(LogLevel::WARNING, "Decoding had bigger height than said in header.");
+      break;
+    case TgxCoderResult::UNKNOWN_MARKER:
+      Log(LogLevel::WARNING, "Encountered an unknown marker in the encoded data.");
+      break;
+    case TgxCoderResult::INVALID_TGX_DATA_SIZE:
+      Log(LogLevel::WARNING, "Decoder attempted to run beyond the given TGX data. Data likely invalid or incomplete.");
+      break;
+    case TgxCoderResult::TGX_HAS_NOT_ENOUGH_PIXELS:
+      Log(LogLevel::WARNING, "Decoder produced an image with less pixels than required by the dimensions in the header.");
+      break;
+    default:
+      Log(LogLevel::ERROR, "Encountered unknown decoder analysis result. Please report this as bug.");
+      break;
+    }
+    Log(LogLevel::ERROR, "Validation completed. TGX is invalid.");
   }
 
   UniqueTgxResourcePointer loadTgxResource(const std::filesystem::path& file)

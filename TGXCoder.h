@@ -28,9 +28,9 @@ struct TgxCoderRawInfo
 struct TgxCoderTgxInfo
 {
   uint8_t* data;
-  int dataSize;
-  int tgxWidth;
-  int tgxHeight;
+  uint32_t dataSize;
+  int32_t tgxWidth;
+  int32_t tgxHeight;
 };
 
 struct TgxCoderInstruction
@@ -52,6 +52,7 @@ struct TgxAnalysis
   int markerCountNewline{ 0 };
   int unfinishedWidthPixelCount{ 0 };
   int newlineWithoutMarkerCount{ 0 };
+  int paddingNewlineMarkerCount{ 0 };
 };
 
 template<>
@@ -107,7 +108,8 @@ struct std::formatter<TgxAnalysis> : public std::formatter<std::string>
       "Repeating Pixels Pixel Count: {}\n"
       "Marker Count Newline: {}\n"
       "Unfinished Width Pixel Count: {}\n"
-      "Newline Without Marker Count: {}",
+      "Newline Without Marker Count: {}\n"
+      "Padding Newline Marker Count: {}",
       args.markerCountPixelStream,
       args.pixelStreamPixelCount,
       args.markerCountTransparent,
@@ -116,7 +118,8 @@ struct std::formatter<TgxAnalysis> : public std::formatter<std::string>
       args.repeatingPixelsPixelCount,
       args.markerCountNewline,
       args.unfinishedWidthPixelCount,
-      args.newlineWithoutMarkerCount);
+      args.newlineWithoutMarkerCount,
+      args.paddingNewlineMarkerCount);
   }
 };
 
