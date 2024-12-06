@@ -1,6 +1,6 @@
 #include "CLI.h"
 
-#include "Logger.h"
+#include "Console.h"
 
 CLIArguments::CLIArguments()
 {

@@ -1,6 +1,6 @@
 #include "TGXFile.h"
 
-#include "Logger.h"
+#include "Console.h"
 
 #include <fstream>
 
@@ -16,13 +16,13 @@ namespace TGXFile
       .tgxWidth{ resource.header->width },
       .tgxHeight{ resource.header->height }
     };
-    Log(LogLevel::INFO, "General TGX info:\n{}", tgxInfo);
 
+    Out("### General TGX info ###\n{}\n\n", tgxInfo);
     TgxAnalysis tgxAnalysis{};
     const TgxCoderResult result{ analyzeTgxToRaw(&tgxInfo, &instructions, &tgxAnalysis) };
     if (result == TgxCoderResult::SUCCESS)
     {
-      Log(LogLevel::INFO, "Structure meta data:\n{}", tgxAnalysis);
+      Out("### Structure meta data ###\n{}\n\n### TGX seems valid ###\n", tgxAnalysis);
       Log(LogLevel::INFO, "Validation completed successfully.");
       return;
     }
@@ -30,33 +30,34 @@ namespace TGXFile
     switch (result)
     {
     case TgxCoderResult::WIDTH_TOO_BIG:
-      Log(LogLevel::WARNING, "Decoding had line with bigger width than said in header.");
+      Out("Decoding had line with bigger width than said in header.\n");
       break;
     case TgxCoderResult::HEIGHT_TOO_BIG:
-      Log(LogLevel::WARNING, "Decoding had bigger height than said in header.");
+      Out("Decoding had bigger height than said in header.\n");
       break;
     case TgxCoderResult::UNKNOWN_MARKER:
-      Log(LogLevel::WARNING, "Encountered an unknown marker in the encoded data.");
+      Out("Encountered an unknown marker in the encoded data.\n");
       break;
     case TgxCoderResult::INVALID_TGX_DATA_SIZE:
-      Log(LogLevel::WARNING, "Decoder attempted to run beyond the given TGX data. Data likely invalid or incomplete.");
+      Out("Decoder attempted to run beyond the given TGX data. Data likely invalid or incomplete.\n");
       break;
     case TgxCoderResult::TGX_HAS_NOT_ENOUGH_PIXELS:
-      Log(LogLevel::WARNING, "Decoder produced an image with less pixels than required by the dimensions in the header.");
+      Out("Decoder produced an image with less pixels than required by the dimensions in the header.\n");
       break;
     default:
-      Log(LogLevel::ERROR, "Encountered unknown decoder analysis result. Please report this as bug.");
+      Out("Encountered unknown decoder analysis result. Please report this as bug.\n");
       break;
     }
+    Out("### TGX seems invalid. ###\n");
     Log(LogLevel::ERROR, "Validation completed. TGX is invalid.");
   }
 
   UniqueTgxResourcePointer loadTgxResource(const std::filesystem::path& file)
   {
-    Log(LogLevel::INFO, "Try loading provided file.");
+    Log(LogLevel::INFO, "Try loading TGX file.");
     if (!std::filesystem::is_regular_file(file))
     {
-      Log(LogLevel::ERROR, "Provided file is not a regular file.");
+      Log(LogLevel::ERROR, "Provided TGX file is not a regular file.");
       return {};
     }
     const uintmax_t fileSize{ std::filesystem::file_size(file) };
@@ -67,7 +68,7 @@ namespace TGXFile
     }
     if (fileSize > MAX_FILE_SIZE)
     {
-      Log(LogLevel::ERROR, "Provided file is too big to be handled by this implementation.");
+      Log(LogLevel::ERROR, "Provided TGX file is too big to be handled by this implementation.");
       return {};
     }
     const uint32_t size{ static_cast<uint32_t>(fileSize) };
@@ -93,7 +94,32 @@ namespace TGXFile
 
   void saveTgxResource(const std::filesystem::path& file, const TgxResource& resource)
   {
-    throw std::exception{ "Not yet implemented." };
+    Log(LogLevel::INFO, "Try saving TGX resource as TGX file.");
+
+    std::filesystem::create_directories(file.parent_path());
+    Log(LogLevel::INFO, "Created directories.");
+
+    // inner block, to wrap file action
+    {
+      std::ofstream out;
+      out.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+      out.open(file, std::ios::out | std::ios::trunc | std::ios::binary);
+
+      out.write(reinterpret_cast<char*>(&resource.header->width), sizeof(uint32_t));
+      out.write(reinterpret_cast<char*>(&resource.header->height), sizeof(uint32_t));
+      out.write(reinterpret_cast<char*>(resource.imageData), resource.dataSize);
+    }
+
+    // small validation
+    if(std::filesystem::file_size(file) != resource.base.resourceSize)
+    {
+      Log(LogLevel::ERROR, "Saved TGX resource as TGX file, but saved file has not expected size. Might be corrupted.");
+      return;
+    }
+    else
+    {
+      Log(LogLevel::INFO, "Saved TGX resource as TGX file.");
+    }
   }
 
   UniqueTgxResourcePointer loadTgxResourceFromRaw(const std::filesystem::path& folder)

@@ -1,7 +1,7 @@
 #include "ResourceMetaFormat.h"
 
 #include "Utility.h"
-#include "Logger.h"
+#include "Console.h"
 
 #include <iostream>
 

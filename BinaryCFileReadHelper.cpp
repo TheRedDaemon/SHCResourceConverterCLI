@@ -2,7 +2,7 @@
 
 #include "BinaryCFileReadHelper.h"
 
-#include "Logger.h"
+#include "Console.h"
 
 BinaryCFileReadHelper::BinaryCFileReadHelper(const char* filepath) : file{ fopen(filepath, "rb") }
 {

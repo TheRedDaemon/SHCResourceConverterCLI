@@ -5,7 +5,7 @@
 #include <fstream>
 #include <filesystem>
 
-#include "Logger.h"
+#include "Console.h"
 #include "Utility.h"
 #include "CLI.h"
 

@@ -144,7 +144,7 @@
     <ClInclude Include="BinaryCFileReadHelper.h" />
     <ClInclude Include="CLI.h" />
     <ClInclude Include="GM1File.h" />
-    <ClInclude Include="Logger.h" />
+    <ClInclude Include="Console.h" />
     <ClInclude Include="ResourceMetaFormat.h" />
     <ClInclude Include="SHCResourceConverter.h" />
     <ClInclude Include="TGXCoder.h" />

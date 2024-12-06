@@ -6,7 +6,7 @@
 #include <optional>
 #include <functional>
 
-#include "Logger.h"
+#include "Console.h"
 
 const std::string OPTION_PREFIX{ "--" };
 
