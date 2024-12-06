@@ -102,7 +102,7 @@ namespace TGXFile
     // inner block, to wrap file action
     {
       std::ofstream out;
-      out.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+      out.exceptions(std::ofstream::failbit | std::ofstream::badbit);
       out.open(file, std::ios::out | std::ios::trunc | std::ios::binary);
 
       out.write(reinterpret_cast<char*>(&resource.header->width), sizeof(uint32_t));
