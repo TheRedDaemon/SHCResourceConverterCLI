@@ -73,7 +73,7 @@ namespace ResourceMetaFormat
 
   namespace FILE
   {
-    inline const std::string FILE_EXTENSION{ ".meta" };
+    inline const std::string EXTENSION{ ".meta" };
   }
 
   namespace HELPER

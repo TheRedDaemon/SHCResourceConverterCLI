@@ -224,7 +224,7 @@ static int executeExtract(const CLIArguments& cliArguments)
       {
         return 1;
       }
-      TGXFile::saveTgxResourceAsRaw(target, *tgxResource);
+      TGXFile::saveTgxResourceAsRaw(target, *tgxResource, getCoderInstructionFromCliOptionsWithFallback(cliArguments));
     }
     break;
     case PathNameType::GM1_FILE:

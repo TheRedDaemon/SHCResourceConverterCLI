@@ -1,6 +1,7 @@
 #include "TGXFile.h"
 
 #include "Console.h"
+#include "ResourceMetaFormat.h"
 
 #include <fstream>
 
@@ -27,27 +28,7 @@ namespace TGXFile
       return;
     }
 
-    switch (result)
-    {
-    case TgxCoderResult::WIDTH_TOO_BIG:
-      Out("Decoding had line with bigger width than said in header.\n");
-      break;
-    case TgxCoderResult::HEIGHT_TOO_BIG:
-      Out("Decoding had bigger height than said in header.\n");
-      break;
-    case TgxCoderResult::UNKNOWN_MARKER:
-      Out("Encountered an unknown marker in the encoded data.\n");
-      break;
-    case TgxCoderResult::INVALID_TGX_DATA_SIZE:
-      Out("Decoder attempted to run beyond the given TGX data. Data likely invalid or incomplete.\n");
-      break;
-    case TgxCoderResult::TGX_HAS_NOT_ENOUGH_PIXELS:
-      Out("Decoder produced an image with less pixels than required by the dimensions in the header.\n");
-      break;
-    default:
-      Out("Encountered unknown decoder analysis result. Please report this as bug.\n");
-      break;
-    }
+    Out("{}\n", std::string_view{ getTgxResultDescription(result) });
     Out("### TGX seems invalid. ###\n");
     Log(LogLevel::ERROR, "Validation completed. TGX is invalid.");
   }
@@ -97,7 +78,7 @@ namespace TGXFile
     Log(LogLevel::INFO, "Try saving TGX resource as TGX file.");
 
     std::filesystem::create_directories(file.parent_path());
-    Log(LogLevel::INFO, "Created directories.");
+    Log(LogLevel::DEBUG, "Created directories.");
 
     // inner block, to wrap file action
     {
@@ -127,8 +108,96 @@ namespace TGXFile
     throw std::exception{ "Not yet implemented." };
   }
 
-  void saveTgxResourceAsRaw(const std::filesystem::path& folder, const TgxResource& resource)
+  void saveTgxResourceAsRaw(const std::filesystem::path& folder, const TgxResource& resource, const TgxCoderInstruction& instructions)
   {
-    throw std::exception{ "Not yet implemented." };
+    Log(LogLevel::INFO, "Try saving TGX resource as raw data.");
+
+    std::filesystem::create_directories(folder);
+    Log(LogLevel::DEBUG, "Created directory.");
+
+    auto rawData{ std::make_unique<uint16_t[]>(static_cast<size_t>(resource.header->width) * resource.header->height) };
+
+    const TgxCoderTgxInfo tgxInfo{
+      .data{ resource.imageData },
+      .dataSize{ resource.dataSize },
+      .tgxWidth{ resource.header->width },
+      .tgxHeight{ resource.header->height }
+    };
+    TgxCoderRawInfo rawInfo{
+      .data{ rawData.get() },
+      .rawWidth{ resource.header->width },
+      .rawHeight{ resource.header->height },
+      .rawX{ 0 },
+      .rawY{ 0 }
+    };
+    const TgxCoderResult result{ decodeTgxToRaw(&tgxInfo, &rawInfo, &instructions, nullptr) };
+    if (result != TgxCoderResult::SUCCESS)
+    {
+      throw std::exception{ getTgxResultDescription(result) };
+    }
+    Log(LogLevel::DEBUG, "Decoded TGX to raw data.");
+
+    const std::string resourceName{ folder.filename().string() };
+    Log(LogLevel::DEBUG, "Using folder name '{}' as resource name.", resourceName);
+
+    std::filesystem::path relativeDataPath{ resourceName };
+    relativeDataPath.replace_extension(RAW_DATA_FILE_EXTENSION);
+
+    const size_t rawDataSize{ static_cast<size_t>(resource.header->width) * resource.header->height * sizeof(uint16_t) };
+
+    Log(LogLevel::DEBUG, "Creating resource meta file.");
+    {
+      std::filesystem::path file{ folder / resourceName };
+      file.replace_extension(ResourceMetaFormat::FILE::EXTENSION);
+
+      try {
+        std::ofstream out;
+        out.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+        out.open(file, std::ios::out | std::ios::trunc); // text handling
+
+        ResourceMetaFormat::ResourceMetaFileWriter::startFile(out, ResourceMetaFormat::VERSION::CURRENT)
+          .startHeader()
+          .endObject()
+
+          .startObject(TgxResourceMeta::RESOURCE_IDENTIFIER, TgxResourceMeta::CURRENT_VERSION)
+          .writeMapEntry(TgxResourceMeta::RAW_DATA_PATH_KEY, relativeDataPath.string())
+          .writeMapEntry(TgxResourceMeta::RAW_DATA_SIZE_KEY, std::to_string(rawDataSize))
+          .writeMapEntry(TgxResourceMeta::RAW_DATA_TRANSPARENT_PIXEL_KEY, std::format("{:#06x}", instructions.transparentPixelRawColor),
+            "Color used for transparent pixel during extract. Not automatically used during packing.")
+          .endObject()
+
+          .startObject(TgxHeaderMeta::RESOURCE_IDENTIFIER, TgxHeaderMeta::CURRENT_VERSION)
+          .writeListEntry(std::to_string(resource.header->width), TgxHeaderMeta::COMMENT_WIDTH)
+          .writeListEntry(std::to_string(resource.header->height), TgxHeaderMeta::COMMENT_HEIGHT)
+          .endObject()
+
+          .endFile();
+      }
+      catch (...) {
+        Log(LogLevel::ERROR, "Encountered error while writing TGX resource meta file. File is likely corrupted.");
+        throw;
+      }
+    }
+    Log(LogLevel::DEBUG, "Created resource meta file.");
+
+    Log(LogLevel::DEBUG, "Creating resource data file.");
+    {
+      const std::filesystem::path file{ folder / relativeDataPath };
+      try
+      {
+        std::ofstream out;
+        out.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+        out.open(file, std::ios::out | std::ios::trunc | std::ios::binary);
+        out.write(reinterpret_cast<const char*>(rawData.get()), rawDataSize);
+      }
+      catch (...)
+      {
+        Log(LogLevel::ERROR, "Encountered error while writing TGX resource data file. File is likely corrupted.");
+        throw;
+      }
+    }
+    Log(LogLevel::DEBUG, "Created resource data file.");
+
+    Log(LogLevel::INFO, "Saved TGX resource as raw data.");
   }
 }

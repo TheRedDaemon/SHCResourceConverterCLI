@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <format>
 
-enum class TgxCoderResult
+enum class TgxCoderResult : int32_t
 {
   SUCCESS,
   FILLED_ENCODING_SIZE,
@@ -138,3 +138,6 @@ extern "C" __declspec(dllexport) TgxCoderResult decodeTgxToRaw(const TgxCoderTgx
 // fills the dataSize in TgxCoderTgxInfo if data ptr is nullptr and return different result, else it will fill the buffer, but stop if dataSize indicates that the buffer is too small
 // resulting in a broken result; if the buffer size indicated by dataSize is big enough, the dataSize will be set to the actual size
 extern "C" __declspec(dllexport) TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* tgxData, const TgxCoderInstruction* instruction);
+
+// get a string description of the result, never returns nullptr
+extern "C" __declspec(dllexport) const char* getTgxResultDescription(const TgxCoderResult result);

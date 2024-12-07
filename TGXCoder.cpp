@@ -346,3 +346,32 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
   tgxData->dataSize = resultSize;
   return tgxData->data ? TgxCoderResult::SUCCESS : TgxCoderResult::FILLED_ENCODING_SIZE;
 }
+
+const char* getTgxResultDescription(const TgxCoderResult result)
+{
+  switch (result)
+  {
+  case TgxCoderResult::SUCCESS:
+    return "Coder completed successfully.";
+  case TgxCoderResult::FILLED_ENCODING_SIZE:
+    return "Dry run of encoder completed successfully. Encoding data size was filled into given struct.";
+
+  case TgxCoderResult::WIDTH_TOO_BIG:
+    return "Decoder encountered line with bigger width than said by meta data.";
+  case TgxCoderResult::HEIGHT_TOO_BIG:
+    return "Decoder encountered bigger height than said by meta data.";
+  case TgxCoderResult::UNKNOWN_MARKER:
+    return "Decoder encountered an unknown marker in the encoded data.";
+  case TgxCoderResult::INVALID_TGX_DATA_SIZE:
+    return "Decoder attempted to run beyond the given encoded data. Data likely invalid or incomplete.";
+  case TgxCoderResult::TGX_HAS_NOT_ENOUGH_PIXELS:
+    return "Decoder produced an image with less pixels than required by the dimensions requested by the meta data.";
+  case TgxCoderResult::RAW_WIDTH_TOO_SMALL:
+    return "Coder was given a raw image width that is not compatible with the other meta data.";
+  case TgxCoderResult::MISSING_REQUIRED_STRUCTS:
+    return "Coder was not given the structs required for de- or encoding.";
+
+  default:
+    return "Encountered unknown decoder analysis result. This should not happen.";
+  }
+}
