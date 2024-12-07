@@ -44,6 +44,6 @@ namespace TGXFile
   UniqueTgxResourcePointer loadTgxResource(const std::filesystem::path& file);
   void saveTgxResource(const std::filesystem::path& file, const TgxResource& resource);
 
-  UniqueTgxResourcePointer loadTgxResourceFromRaw(const std::filesystem::path& folder);
+  UniqueTgxResourcePointer loadTgxResourceFromRaw(const std::filesystem::path& folder, const TgxCoderInstruction& instructions);
   void saveTgxResourceAsRaw(const std::filesystem::path& folder, const TgxResource& resource, const TgxCoderInstruction& instructions);
 }

@@ -280,7 +280,7 @@ static int executePack(const CLIArguments& cliArguments)
     case PathNameType::TGX_FILE:
     {
       Log(LogLevel::INFO, "Try packing provided TGX folder.");
-      const TGXFile::UniqueTgxResourcePointer tgxResource{ TGXFile::loadTgxResourceFromRaw(source) };
+      const TGXFile::UniqueTgxResourcePointer tgxResource{ TGXFile::loadTgxResourceFromRaw(source, getCoderInstructionFromCliOptionsWithFallback(cliArguments)) };
       if (!tgxResource)
       {
         return 1;

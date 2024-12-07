@@ -13,7 +13,7 @@ namespace ResourceMetaFormat
   /* ResourceMetaObjectReader */
 
   ResourceMetaObjectReader::ResourceMetaObjectReader(std::string&& identifier, int version,
-    std::vector<std::string>&& listEntries, std::unordered_map<std::string, std::string>&& mapEntries)
+    std::vector<std::string>&& listEntries, std::map<std::string, std::string, std::less<>>&& mapEntries)
     : identifier(std::move(identifier)), version(version), listEntries(std::move(listEntries)), mapEntries(std::move(mapEntries))
   {
   }
@@ -68,7 +68,7 @@ namespace ResourceMetaFormat
     return listEntries;
   }
 
-  const std::unordered_map<std::string, std::string>& ResourceMetaObjectReader::getMapEntries() const
+  const std::map<std::string, std::string, std::less<>>& ResourceMetaObjectReader::getMapEntries() const
   {
     return mapEntries;
   }
@@ -113,7 +113,7 @@ namespace ResourceMetaFormat
 
       // extract keys and values 
       std::vector<std::string> listEntries{};
-      std::unordered_map<std::string, std::string> mapEntries{};
+      std::map<std::string, std::string, std::less<>> mapEntries{};
       while (!(line = extractMeaningfulLine(stream)).empty())
       {
         if (line.starts_with(MARKER::LIST_ITEM_CHARACTER))

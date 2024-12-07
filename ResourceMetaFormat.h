@@ -46,7 +46,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <unordered_map>
+#include <map>
 
 namespace ResourceMetaFormat
 {
@@ -87,9 +87,9 @@ namespace ResourceMetaFormat
     std::string identifier;
     int version;
     std::vector<std::string> listEntries;
-    std::unordered_map<std::string, std::string> mapEntries;
+    std::map<std::string, std::string, std::less<>> mapEntries;
 
-    explicit ResourceMetaObjectReader(std::string&& identifier, int version, std::vector<std::string>&& listEntries, std::unordered_map<std::string, std::string>&& mapEntries);
+    explicit ResourceMetaObjectReader(std::string&& identifier, int version, std::vector<std::string>&& listEntries, std::map<std::string, std::string, std::less<>>&& mapEntries);
 
     static std::string extractMeaningfulLine(std::istream& stream);
   public:
@@ -98,7 +98,7 @@ namespace ResourceMetaFormat
     const std::string& getIdentifier() const;
     int getVersion() const;
     const std::vector<std::string>& getListEntries() const;
-    const std::unordered_map<std::string, std::string>& getMapEntries() const;
+    const std::map<std::string, std::string, std::less<>>& getMapEntries() const;
 
     // expects to start from the identifier
     static ResourceMetaObjectReader parseFrom(std::istream& stream, int formatVersion);
