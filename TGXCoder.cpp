@@ -9,6 +9,8 @@
 // TODO: apperantly, GM files indicate with a flag if alpha is 0 or 1: https://github.com/PodeCaradox/Gm1KonverterCrossPlatform/blob/5b1ade8c38a3ed5a583dcb7ff3d843a12d14b87f/Gm1KonverterCrossPlatform/HelperClasses/Utility.cs#L170
 // this also needs support, also the code might imply that certain format versions short circuit the newline
 
+static constexpr int MAX_PIXEL_PER_MARKER{ 32 };
+
 // "instruction" currently unused
 TgxCoderResult analyzeTgxToRaw(const TgxCoderTgxInfo* tgxData, const TgxCoderInstruction* instruction, TgxAnalysis* tgxAnalysis)
 {
@@ -31,12 +33,12 @@ TgxCoderResult analyzeTgxToRaw(const TgxCoderTgxInfo* tgxData, const TgxCoderIns
 
     if (marker == TgxStreamMarker::TGX_MARKER_NEWLINE)
     {
-      if (tgxAnalysis) ++tgxAnalysis->markerCountNewline;
       if (currentWidth <= 0 && currentHeight == tgxData->tgxHeight) // handle padding at end
       {
         if (tgxAnalysis) ++tgxAnalysis->paddingNewlineMarkerCount;
         continue;
       }
+      if (tgxAnalysis) ++tgxAnalysis->markerCountNewline;
 
       // TODO: are there even TGX without finished widths?
       if (tgxAnalysis && currentWidth < tgxData->tgxWidth) tgxAnalysis->unfinishedWidthPixelCount += tgxData->tgxWidth - currentWidth;
@@ -221,11 +223,12 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
   for (int yIndex{ 0 }; yIndex < tgxData->tgxHeight; ++yIndex)
   {
     int xIndex{ 0 };
+    bool lastEndedWithRepeatingPixel{ false }; // TODO: check if there is a better way to handle this
     while (xIndex < tgxData->tgxWidth)
     {
       uint8_t count{ 0 };
 
-      while (xIndex < tgxData->tgxWidth && count < 32 && rawData->data[sourceIndex] == instruction->transparentPixelRawColor)
+      while (xIndex < tgxData->tgxWidth && count < MAX_PIXEL_PER_MARKER && rawData->data[sourceIndex] == instruction->transparentPixelRawColor)
       {
         ++count;
         ++xIndex;
@@ -246,10 +249,10 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
       }
 
       // TODO?: is there a special handling for the magenta transparent-marker color pixel, since the RGB transform ignores it, but only for stream pixels?
-      uint16_t pixelBuffer[32];
+      uint16_t pixelBuffer[MAX_PIXEL_PER_MARKER];
       int repeatingPixelCount{ 0 };
       uint16_t repeatingPixel{ 0 };
-      while (xIndex < tgxData->tgxWidth && count < 32)
+      while (xIndex < tgxData->tgxWidth && count < MAX_PIXEL_PER_MARKER)
       {
         uint16_t nextPixel{ rawData->data[sourceIndex] };
         if (nextPixel == instruction->transparentPixelRawColor)
@@ -257,13 +260,14 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
           break;
         }
 
-        while (xIndex < tgxData->tgxWidth && repeatingPixelCount < 32 && rawData->data[sourceIndex] == nextPixel)
+        while (xIndex < tgxData->tgxWidth && repeatingPixelCount < MAX_PIXEL_PER_MARKER && rawData->data[sourceIndex] == nextPixel)
         {
           ++repeatingPixelCount;
           ++sourceIndex;
           ++xIndex;
         }
-        if (repeatingPixelCount >= instruction->pixelRepeatThreshold)
+        // end of line short-circuits to repeating pixels even if under threshold if it is the continuation of already repeating pixels
+        if (repeatingPixelCount >= instruction->pixelRepeatThreshold || (lastEndedWithRepeatingPixel && xIndex >= tgxData->tgxWidth))
         {
           repeatingPixel = nextPixel;
           break;
@@ -271,12 +275,12 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
 
         // fix if repeating pixel not long enough for stream
         int adjustPixel{ count + repeatingPixelCount };
-        if (adjustPixel > 32)
+        if (adjustPixel > MAX_PIXEL_PER_MARKER)
         {
-          const int reduceSteps{ adjustPixel - 32 };
+          const int reduceSteps{ adjustPixel - MAX_PIXEL_PER_MARKER };
           sourceIndex -= reduceSteps;
           xIndex -= reduceSteps;
-          adjustPixel = 32;
+          adjustPixel = MAX_PIXEL_PER_MARKER;
         }
 
         while (count < adjustPixel)
@@ -315,6 +319,11 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
           *((uint16_t*) (tgxData->data + targetIndex)) = repeatingPixel;
           targetIndex += 2;
         }
+        lastEndedWithRepeatingPixel = true;
+      }
+      else
+      {
+        lastEndedWithRepeatingPixel = false;
       }
     }
     // line end

@@ -137,7 +137,7 @@ static void printHelp()
   // TODO: create help text
 }
 
-static int executeText(const CLIArguments& cliArguments)
+static int executeTest(const CLIArguments& cliArguments)
 {
   try
   {
@@ -340,7 +340,7 @@ int main(int argc, char* argv[])
 
     if (COMMAND::TEST == *command)
     {
-      const int result{ executeText(cliArguments) };
+      const int result{ executeTest(cliArguments) };
       if (result != 0)
       {
         return result;
