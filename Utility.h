@@ -104,3 +104,4 @@ UInt uintFromStr(const std::string& str)
   return static_cast<UInt>(result);
 }
 
+bool boolFromStr(const std::string& str);

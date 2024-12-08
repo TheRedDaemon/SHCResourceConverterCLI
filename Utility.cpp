@@ -18,3 +18,18 @@ void trimLeadingAndTrailingWhitespaceInPlace(std::string& str)
   trimTrailingWhitespaceInPlace(str);
   trimLeadingWhitespaceInPlace(str);
 }
+
+/* Value from string helper */
+
+bool boolFromStr(const std::string& str)
+{
+  if (str == "true" || str == "1")
+  {
+    return true;
+  }
+  else if (str == "false" || str == "0")
+  {
+    return false;
+  }
+  throw std::invalid_argument("Unable to convert string to bool.");
+}

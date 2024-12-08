@@ -8,7 +8,7 @@
 
 namespace TGXFile
 {
-  void validateTgxResource(const TgxResource& resource, const TgxCoderInstruction& instructions)
+  void validateTgxResource(const TgxResource& resource, const TgxCoderInstruction& instructions, bool tgxAsText)
   {
     Log(LogLevel::INFO, "Try validating given resource.");
     
@@ -22,16 +22,28 @@ namespace TGXFile
     Out("### General TGX info ###\n{}\n\n", tgxInfo);
     TgxAnalysis tgxAnalysis{};
     const TgxCoderResult result{ analyzeTgxToRaw(&tgxInfo, &instructions, &tgxAnalysis) };
-    if (result == TgxCoderResult::SUCCESS)
+    if (result != TgxCoderResult::SUCCESS)
     {
-      Out("### Structure meta data ###\n{}\n\n### TGX seems valid ###\n", tgxAnalysis);
-      Log(LogLevel::INFO, "Validation completed successfully.");
-      return;
+      Out("{}\n", std::string_view{ getTgxResultDescription(result) });
+      Out("### TGX seems invalid. ###\n");
+      Log(LogLevel::ERROR, "Validation completed. TGX is invalid.");
     }
 
-    Out("{}\n", std::string_view{ getTgxResultDescription(result) });
-    Out("### TGX seems invalid. ###\n");
-    Log(LogLevel::ERROR, "Validation completed. TGX is invalid.");
+    Out("### Structure meta data ###\n{}\n\n### TGX seems valid ###\n", tgxAnalysis);
+    Log(LogLevel::INFO, "Validation completed successfully.");
+    if (!tgxAsText)
+    {
+      return;
+    }
+    Log(LogLevel::INFO, "Printing TGX as text to stdout.");
+    Out("\n");
+    const TgxCoderResult toTextResult{ decodeTgxToText(tgxInfo, instructions, STD_OUT) };
+    if (toTextResult != TgxCoderResult::SUCCESS)
+    {
+      Out("{}\n", std::string_view{ getTgxResultDescription(toTextResult) });
+      Log(LogLevel::ERROR, "Failed to print TGX as text.");
+    }
+    Log(LogLevel::INFO, "Completed to print TGX as text.");
   }
 
   UniqueTgxResourcePointer loadTgxResource(const std::filesystem::path& file)

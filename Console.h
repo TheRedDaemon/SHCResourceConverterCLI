@@ -22,6 +22,9 @@ inline const std::unordered_map<LogLevel, const char*> LOG_LEVEL_MAP{
   { LogLevel::ERROR, "ERROR" }
 };
 
+inline std::ostream& LOG_OUT{ std::clog };
+inline std::ostream& STD_OUT{ std::cout };
+
 inline LogLevel currentLogLevel{ LogLevel::INFO };
 
 template<class... Args>
@@ -32,12 +35,12 @@ void Log(const LogLevel level, const std::format_string<Args...> fmt, Args&&... 
     return;
   }
   const std::chrono::zoned_time currentTime{ std::chrono::current_zone(), std::chrono::system_clock::now() };
-  std::print(std::clog, "{:%Y-%m-%d %T %Z} : {} : ", currentTime, LOG_LEVEL_MAP.at(level));
-  std::println(std::clog, fmt, std::forward<Args>(args)...);
+  std::print(LOG_OUT, "{:%Y-%m-%d %T %Z} : {} : ", currentTime, LOG_LEVEL_MAP.at(level));
+  std::println(LOG_OUT, fmt, std::forward<Args>(args)...);
 }
 
 template<class... Args>
 void Out(const std::format_string<Args...> fmt, Args&&... args)
 {
-  std::print(std::cout, fmt, std::forward<Args>(args)...);
+  std::print(STD_OUT, fmt, std::forward<Args>(args)...);
 }

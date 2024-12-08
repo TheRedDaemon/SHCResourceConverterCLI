@@ -1,8 +1,9 @@
 
-#include <memory>
-
 #include "SHCResourceConverter.h"
 #include "TGXCoder.h"
+
+#include <ostream>
+#include <memory>
 
 // TODO: maybe clean logical values? Many could be unsigned
 
@@ -10,6 +11,49 @@
 // this also needs support, also the code might imply that certain format versions short circuit the newline
 
 static constexpr int MAX_PIXEL_PER_MARKER{ 32 };
+
+TgxCoderResult decodeTgxToText(const TgxCoderTgxInfo& tgxData, const TgxCoderInstruction& instruction, std::ostream& outStream)
+{
+  const TgxCoderResult result{ analyzeTgxToRaw(&tgxData, &instruction, nullptr) };
+  if (result != TgxCoderResult::SUCCESS)
+  {
+    return result;
+  }
+
+  uint32_t sourceIndex{ 0 };
+  while (sourceIndex < tgxData.dataSize)
+  {
+    const TgxStreamMarker marker{ static_cast<TgxStreamMarker>(tgxData.data[sourceIndex] & TgxStreamMarker::TGX_PIXEL_MARKER) };
+    const int pixelNumber{ (tgxData.data[sourceIndex] & TgxStreamMarker::TGX_PIXEL_NUMBER) + 1 }; // 0 means one pixel, like an index
+    ++sourceIndex;
+
+    switch (marker)
+    {
+    case TgxStreamMarker::TGX_MARKER_STREAM_OF_PIXELS:
+      std::print(outStream, "STREAM_PIXEL {}", pixelNumber);
+      for (int i{ 0 }; i < pixelNumber * 2; i += 2)
+      {
+        std::print(outStream, " {:#06x}", *(uint16_t*) (tgxData.data + sourceIndex));
+        sourceIndex += 2;
+      }
+      std::print(outStream, "\n");
+      break;
+    case TgxStreamMarker::TGX_MARKER_REPEATING_PIXELS:
+      std::print(outStream, "REPEAT_PIXEL {} {:#06x}\n", pixelNumber, *(uint16_t*) (tgxData.data + sourceIndex));
+      sourceIndex += 2;
+      break;
+    case TgxStreamMarker::TGX_MARKER_TRANSPARENT_PIXELS:
+      std::print(outStream, "TRANSPARENT_PIXEL {}\n", pixelNumber);
+      break;
+    case TgxStreamMarker::TGX_MARKER_NEWLINE:
+      std::print(outStream, "NEWLINE {}\n", pixelNumber);
+      break;
+    default:
+      return TgxCoderResult::UNKNOWN_MARKER;
+    }
+  }
+  return TgxCoderResult::SUCCESS;
+}
 
 // "instruction" currently unused
 TgxCoderResult analyzeTgxToRaw(const TgxCoderTgxInfo* tgxData, const TgxCoderInstruction* instruction, TgxAnalysis* tgxAnalysis)
@@ -185,7 +229,7 @@ TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* r
     case TgxStreamMarker::TGX_MARKER_REPEATING_PIXELS:
       for (const int indexEnd{ targetIndex + pixelNumber }; targetIndex < indexEnd; ++targetIndex)
       {
-        rawData->data[targetIndex] = *(int16_t*) (tgxData->data + sourceIndex);
+        rawData->data[targetIndex] = *(uint16_t*) (tgxData->data + sourceIndex);
       }
       sourceIndex += 2;
       break;

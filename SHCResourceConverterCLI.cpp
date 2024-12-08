@@ -52,6 +52,7 @@ namespace COMMAND
 namespace OPTION
 {
   inline const std::string LOG{ "log" };
+  inline const std::string TEST_TGX_AS_TEXT{ "test-tgx-as-text" };
   inline const std::string TGX_CODER_TRANSPARENT_PIXEL_TGX_COLOR{ "tgx-coder-transparent-pixel-tgx-color" };
   inline const std::string TGX_CODER_TRANSPARENT_PIXEL_RAW_COLOR{ "tgx-coder-transparent-pixel-raw-color" };
   inline const std::string TGX_CODER_PIXEL_REPEAT_THRESHOLD{ "tgx-coder-pixel-repeat-threshold" };
@@ -162,8 +163,8 @@ static int executeTest(const CLIArguments& cliArguments)
       {
         return 1;
       }
-
-      TGXFile::validateTgxResource(*tgxResource, getCoderInstructionFromCliOptionsWithFallback(cliArguments));
+      TGXFile::validateTgxResource(*tgxResource, getCoderInstructionFromCliOptionsWithFallback(cliArguments),
+        cliArguments.getOptionAs<boolFromStr>(OPTION::TEST_TGX_AS_TEXT).value_or(false));
     }
     break;
     case PathNameType::GM1_FILE:

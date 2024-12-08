@@ -123,14 +123,16 @@ struct std::formatter<TgxAnalysis> : public std::formatter<std::string>
   }
 };
 
-// TODO: check if the change to the complete marker works
-
 // defined for transformation
 constexpr uint16_t GAME_TRANSPARENT_COLOR{ 0b1111100000011111 }; // used by game for some cases (repeating pixels seem excluded?)
 constexpr uint16_t TGX_FILE_TRANSPARENT{ 0 }; // for placing transparency and identification of it
 constexpr int TGX_FILE_PIXEL_REPEAT_THRESHOLD{ 3 }; // requires testing with other files
 constexpr int TGX_FILE_PADDING_ALIGNMENT{ 4 }; // requires testing with other files
 constexpr TgxCoderInstruction TGX_FILE_DEFAULT_INSTRUCTION{ GAME_TRANSPARENT_COLOR, TGX_FILE_TRANSPARENT, TGX_FILE_PIXEL_REPEAT_THRESHOLD, TGX_FILE_PADDING_ALIGNMENT };
+
+// analysis function that decodes the raw TGX data to a readable text stream
+// only intended for analysis
+TgxCoderResult decodeTgxToText(const TgxCoderTgxInfo& tgxData, const TgxCoderInstruction& instruction, std::ostream& outStream);
 
 extern "C" __declspec(dllexport) TgxCoderResult analyzeTgxToRaw(const TgxCoderTgxInfo* tgxData, const TgxCoderInstruction* instruction, TgxAnalysis* tgxAnalysis);
 extern "C" __declspec(dllexport) TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* rawData, const TgxCoderInstruction* instruction, TgxAnalysis* tgxAnalysis);
