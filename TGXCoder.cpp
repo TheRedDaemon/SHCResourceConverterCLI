@@ -12,48 +12,6 @@
 
 static constexpr int MAX_PIXEL_PER_MARKER{ 32 };
 
-TgxCoderResult decodeTgxToText(const TgxCoderTgxInfo& tgxData, const TgxCoderInstruction& instruction, std::ostream& outStream)
-{
-  const TgxCoderResult result{ analyzeTgxToRaw(&tgxData, &instruction, nullptr) };
-  if (result != TgxCoderResult::SUCCESS)
-  {
-    return result;
-  }
-
-  uint32_t sourceIndex{ 0 };
-  while (sourceIndex < tgxData.dataSize)
-  {
-    const TgxStreamMarker marker{ static_cast<TgxStreamMarker>(tgxData.data[sourceIndex] & TgxStreamMarker::TGX_PIXEL_MARKER) };
-    const int pixelNumber{ (tgxData.data[sourceIndex] & TgxStreamMarker::TGX_PIXEL_NUMBER) + 1 }; // 0 means one pixel, like an index
-    ++sourceIndex;
-
-    switch (marker)
-    {
-    case TgxStreamMarker::TGX_MARKER_STREAM_OF_PIXELS:
-      std::print(outStream, "STREAM_PIXEL {}", pixelNumber);
-      for (int i{ 0 }; i < pixelNumber * 2; i += 2)
-      {
-        std::print(outStream, " {:#06x}", *(uint16_t*) (tgxData.data + sourceIndex));
-        sourceIndex += 2;
-      }
-      std::print(outStream, "\n");
-      break;
-    case TgxStreamMarker::TGX_MARKER_REPEATING_PIXELS:
-      std::print(outStream, "REPEAT_PIXEL {} {:#06x}\n", pixelNumber, *(uint16_t*) (tgxData.data + sourceIndex));
-      sourceIndex += 2;
-      break;
-    case TgxStreamMarker::TGX_MARKER_TRANSPARENT_PIXELS:
-      std::print(outStream, "TRANSPARENT_PIXEL {}\n", pixelNumber);
-      break;
-    case TgxStreamMarker::TGX_MARKER_NEWLINE:
-      std::print(outStream, "NEWLINE {}\n", pixelNumber);
-      break;
-    default:
-      return TgxCoderResult::UNKNOWN_MARKER;
-    }
-  }
-  return TgxCoderResult::SUCCESS;
-}
 
 // "instruction" currently unused
 TgxCoderResult analyzeTgxToRaw(const TgxCoderTgxInfo* tgxData, const TgxCoderInstruction* instruction, TgxAnalysis* tgxAnalysis)
@@ -266,34 +224,39 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
   int targetIndex{ 0 };
   for (int yIndex{ 0 }; yIndex < tgxData->tgxHeight; ++yIndex)
   {
-    int xIndex{ 0 };
-    bool lastEndedWithRepeatingPixel{ false }; // TODO: check if there is a better way to handle this
-    while (xIndex < tgxData->tgxWidth)
+    for (int xIndex{ 0 }; xIndex < tgxData->tgxWidth;)
     {
-      uint8_t count{ 0 };
-
-      while (xIndex < tgxData->tgxWidth && count < MAX_PIXEL_PER_MARKER && rawData->data[sourceIndex] == instruction->transparentPixelRawColor)
+      for (uint8_t count{ 0 };;) // consume all transparency
       {
+        const bool endLoop{ !(xIndex < tgxData->tgxWidth && rawData->data[sourceIndex] == instruction->transparentPixelRawColor) };
+        if (endLoop || count >= MAX_PIXEL_PER_MARKER)
+        {
+          if (count > 0)
+          {
+            ++resultSize;
+            if (tgxData->data)
+            {
+              if (resultSize > tgxData->dataSize)
+              {
+                return TgxCoderResult::INVALID_TGX_DATA_SIZE;
+              }
+              tgxData->data[targetIndex++] = TgxStreamMarker::TGX_MARKER_TRANSPARENT_PIXELS | (count - 1);
+            };
+            count = 0;
+          }
+          if (endLoop)
+          {
+            break;
+          }
+        }
         ++count;
         ++xIndex;
         ++sourceIndex;
       }
 
-      if (count > 0) // we added transparency, so continue with next loop
-      {
-        ++resultSize;
-        if (tgxData->data) { 
-          if (resultSize > tgxData->dataSize)
-          {
-            return TgxCoderResult::INVALID_TGX_DATA_SIZE;
-          }
-          tgxData->data[targetIndex++] = TgxStreamMarker::TGX_MARKER_TRANSPARENT_PIXELS | (count - 1);
-        };
-        continue;
-      }
-
       // TODO?: is there a special handling for the magenta transparent-marker color pixel, since the RGB transform ignores it, but only for stream pixels?
-      uint16_t pixelBuffer[MAX_PIXEL_PER_MARKER];
+      uint16_t pixelBuffer[MAX_PIXEL_PER_MARKER]{ 0 };
+      int count{ 0 };
       int repeatingPixelCount{ 0 };
       uint16_t repeatingPixel{ 0 };
       while (xIndex < tgxData->tgxWidth && count < MAX_PIXEL_PER_MARKER)
@@ -304,14 +267,14 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
           break;
         }
 
-        while (xIndex < tgxData->tgxWidth && repeatingPixelCount < MAX_PIXEL_PER_MARKER && rawData->data[sourceIndex] == nextPixel)
+        // check if repeating pixel reach threshold
+        while (xIndex < tgxData->tgxWidth && repeatingPixelCount < instruction->pixelRepeatThreshold && rawData->data[sourceIndex] == nextPixel)
         {
           ++repeatingPixelCount;
           ++sourceIndex;
           ++xIndex;
         }
-        // end of line short-circuits to repeating pixels even if under threshold if it is the continuation of already repeating pixels
-        if (repeatingPixelCount >= instruction->pixelRepeatThreshold || (lastEndedWithRepeatingPixel && xIndex >= tgxData->tgxWidth))
+        if (repeatingPixelCount >= instruction->pixelRepeatThreshold)
         {
           repeatingPixel = nextPixel;
           break;
@@ -350,24 +313,40 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
         }
       }
 
-      if (repeatingPixelCount > 0)
+      while (repeatingPixelCount > 0) // consume all repeating pixel blocks
       {
-        resultSize += 3;
-        if (tgxData->data)
+        const bool endLoop{ !(xIndex < tgxData->tgxWidth && rawData->data[sourceIndex] == repeatingPixel) };
+        if (endLoop || repeatingPixelCount >= MAX_PIXEL_PER_MARKER)
         {
-          if (resultSize > tgxData->dataSize)
+          // end of line short-circuits to repeating pixel under threshold if the previous marker was a repeating pixel
+          if (repeatingPixelCount >= instruction->pixelRepeatThreshold || xIndex >= tgxData->tgxWidth)
           {
-            return TgxCoderResult::INVALID_TGX_DATA_SIZE;
+            resultSize += 3;
+            if (tgxData->data)
+            {
+              if (resultSize > tgxData->dataSize)
+              {
+                return TgxCoderResult::INVALID_TGX_DATA_SIZE;
+              }
+              tgxData->data[targetIndex++] = TgxStreamMarker::TGX_MARKER_REPEATING_PIXELS | (repeatingPixelCount - 1);
+              *((uint16_t*) (tgxData->data + targetIndex)) = repeatingPixel;
+              targetIndex += 2;
+            }
+            repeatingPixelCount = 0;
           }
-          tgxData->data[targetIndex++] = TgxStreamMarker::TGX_MARKER_REPEATING_PIXELS | (repeatingPixelCount - 1);
-          *((uint16_t*) (tgxData->data + targetIndex)) = repeatingPixel;
-          targetIndex += 2;
+          if (endLoop)
+          {
+            // adjust not taken pixels
+            sourceIndex -= repeatingPixelCount;
+            xIndex -= repeatingPixelCount;
+            // end loop
+            repeatingPixelCount = 0;
+            continue;
+          }
         }
-        lastEndedWithRepeatingPixel = true;
-      }
-      else
-      {
-        lastEndedWithRepeatingPixel = false;
+        ++repeatingPixelCount;
+        ++xIndex;
+        ++sourceIndex;
       }
     }
     // line end
@@ -427,4 +406,47 @@ const char* getTgxResultDescription(const TgxCoderResult result)
   default:
     return "Encountered unknown decoder analysis result. This should not happen.";
   }
+}
+
+TgxCoderResult decodeTgxToText(const TgxCoderTgxInfo& tgxData, const TgxCoderInstruction& instruction, std::ostream& outStream)
+{
+  const TgxCoderResult result{ analyzeTgxToRaw(&tgxData, &instruction, nullptr) };
+  if (result != TgxCoderResult::SUCCESS)
+  {
+    return result;
+  }
+
+  uint32_t sourceIndex{ 0 };
+  while (sourceIndex < tgxData.dataSize)
+  {
+    const TgxStreamMarker marker{ static_cast<TgxStreamMarker>(tgxData.data[sourceIndex] & TgxStreamMarker::TGX_PIXEL_MARKER) };
+    const int pixelNumber{ (tgxData.data[sourceIndex] & TgxStreamMarker::TGX_PIXEL_NUMBER) + 1 }; // 0 means one pixel, like an index
+    ++sourceIndex;
+
+    switch (marker)
+    {
+    case TgxStreamMarker::TGX_MARKER_STREAM_OF_PIXELS:
+      std::print(outStream, "STREAM_PIXEL {}", pixelNumber);
+      for (int i{ 0 }; i < pixelNumber * 2; i += 2)
+      {
+        std::print(outStream, " {:#06x}", *(uint16_t*) (tgxData.data + sourceIndex));
+        sourceIndex += 2;
+      }
+      std::print(outStream, "\n");
+      break;
+    case TgxStreamMarker::TGX_MARKER_REPEATING_PIXELS:
+      std::print(outStream, "REPEAT_PIXEL {} {:#06x}\n", pixelNumber, *(uint16_t*) (tgxData.data + sourceIndex));
+      sourceIndex += 2;
+      break;
+    case TgxStreamMarker::TGX_MARKER_TRANSPARENT_PIXELS:
+      std::print(outStream, "TRANSPARENT_PIXEL {}\n", pixelNumber);
+      break;
+    case TgxStreamMarker::TGX_MARKER_NEWLINE:
+      std::print(outStream, "NEWLINE {}\n", pixelNumber);
+      break;
+    default:
+      return TgxCoderResult::UNKNOWN_MARKER;
+    }
+  }
+  return TgxCoderResult::SUCCESS;
 }

@@ -130,10 +130,6 @@ constexpr int TGX_FILE_PIXEL_REPEAT_THRESHOLD{ 3 }; // requires testing with oth
 constexpr int TGX_FILE_PADDING_ALIGNMENT{ 4 }; // requires testing with other files
 constexpr TgxCoderInstruction TGX_FILE_DEFAULT_INSTRUCTION{ GAME_TRANSPARENT_COLOR, TGX_FILE_TRANSPARENT, TGX_FILE_PIXEL_REPEAT_THRESHOLD, TGX_FILE_PADDING_ALIGNMENT };
 
-// analysis function that decodes the raw TGX data to a readable text stream
-// only intended for analysis
-TgxCoderResult decodeTgxToText(const TgxCoderTgxInfo& tgxData, const TgxCoderInstruction& instruction, std::ostream& outStream);
-
 extern "C" __declspec(dllexport) TgxCoderResult analyzeTgxToRaw(const TgxCoderTgxInfo* tgxData, const TgxCoderInstruction* instruction, TgxAnalysis* tgxAnalysis);
 extern "C" __declspec(dllexport) TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* rawData, const TgxCoderInstruction* instruction, TgxAnalysis* tgxAnalysis);
 
@@ -143,3 +139,8 @@ extern "C" __declspec(dllexport) TgxCoderResult encodeRawToTgx(const TgxCoderRaw
 
 // get a string description of the result, never returns nullptr
 extern "C" __declspec(dllexport) const char* getTgxResultDescription(const TgxCoderResult result);
+
+
+// analysis function that decodes the raw TGX data to a readable text stream
+// only intended for analysis
+TgxCoderResult decodeTgxToText(const TgxCoderTgxInfo& tgxData, const TgxCoderInstruction& instruction, std::ostream& outStream);
