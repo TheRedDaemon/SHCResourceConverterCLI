@@ -257,8 +257,7 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
       // TODO?: is there a special handling for the magenta transparent-marker color pixel, since the RGB transform ignores it, but only for stream pixels?
       uint16_t pixelBuffer[MAX_PIXEL_PER_MARKER]{ 0 };
       int count{ 0 };
-      int repeatingPixelCount{ 0 };
-      uint16_t repeatingPixel{ 0 };
+      int32_t repeatingPixel{ -1 };
       while (xIndex < tgxData->tgxWidth && count < MAX_PIXEL_PER_MARKER)
       {
         uint16_t nextPixel{ rawData->data[sourceIndex] };
@@ -267,12 +266,34 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
           break;
         }
 
-        // check if repeating pixel reach threshold
-        while (xIndex < tgxData->tgxWidth && repeatingPixelCount < instruction->pixelRepeatThreshold && rawData->data[sourceIndex] == nextPixel)
+        // check if repeating pixel reach threshold, but consider pixels of next lines for this decision
+        int repeatingPixelCount{ 0 };
+        int tempXIndex{ xIndex };
+        int tempYIndex{ yIndex };
+        int tempSourceIndex{ sourceIndex };
+        while (true)
         {
+          if (repeatingPixelCount >= instruction->pixelRepeatThreshold)
+          {
+            break;
+          }
+          if (tempXIndex >= tgxData->tgxWidth)
+          {
+            ++tempYIndex;
+            if (tempYIndex >= tgxData->tgxHeight)
+            {
+              break;
+            }
+            tempXIndex = 0;
+            tempSourceIndex += lineJump;
+          }
+          if (rawData->data[tempSourceIndex] != nextPixel)
+          {
+            break;
+          }
           ++repeatingPixelCount;
-          ++sourceIndex;
-          ++xIndex;
+          ++tempSourceIndex;
+          ++tempXIndex;
         }
         if (repeatingPixelCount >= instruction->pixelRepeatThreshold)
         {
@@ -280,21 +301,26 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
           break;
         }
 
+        // fix if number of pixels extend over line
+        const int remainingPixelCount{ tgxData->tgxWidth - xIndex };
+        if (remainingPixelCount < repeatingPixelCount)
+        {
+          repeatingPixelCount = remainingPixelCount;
+        }
+
         // fix if repeating pixel not long enough for stream
         int adjustPixel{ count + repeatingPixelCount };
         if (adjustPixel > MAX_PIXEL_PER_MARKER)
         {
-          const int reduceSteps{ adjustPixel - MAX_PIXEL_PER_MARKER };
-          sourceIndex -= reduceSteps;
-          xIndex -= reduceSteps;
           adjustPixel = MAX_PIXEL_PER_MARKER;
         }
 
         while (count < adjustPixel)
         {
+          ++sourceIndex;
+          ++xIndex;
           pixelBuffer[count++] = nextPixel;
         }
-        repeatingPixelCount = 0;
       }
 
       if (count > 0)
@@ -313,12 +339,19 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
         }
       }
 
-      while (repeatingPixelCount > 0) // consume all repeating pixel blocks
+      if (repeatingPixel < 0)
       {
-        const bool endLoop{ !(xIndex < tgxData->tgxWidth && rawData->data[sourceIndex] == repeatingPixel) };
+        continue;
+      }
+      const uint16_t foundRepeatingPixel{ static_cast<uint16_t>(repeatingPixel) };
+      for (int repeatingPixelCount{0};;) // there should be at least one, due to the check above
+      {
+        const bool endLoop{ !(xIndex < tgxData->tgxWidth && rawData->data[sourceIndex] == foundRepeatingPixel) };
         if (endLoop || repeatingPixelCount >= MAX_PIXEL_PER_MARKER)
         {
-          // end of line short-circuits to repeating pixel under threshold if the previous marker was a repeating pixel
+          // end of line short-circuits to repeating pixel under threshold if reached during repeating pixel
+          // TODO: it might still be the case that the condition is always "next repeating pixels reach threshold",
+          // which would require another handling here that also steps over into the next line
           if (repeatingPixelCount >= instruction->pixelRepeatThreshold || xIndex >= tgxData->tgxWidth)
           {
             resultSize += 3;
@@ -329,7 +362,7 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
                 return TgxCoderResult::INVALID_TGX_DATA_SIZE;
               }
               tgxData->data[targetIndex++] = TgxStreamMarker::TGX_MARKER_REPEATING_PIXELS | (repeatingPixelCount - 1);
-              *((uint16_t*) (tgxData->data + targetIndex)) = repeatingPixel;
+              *((uint16_t*) (tgxData->data + targetIndex)) = foundRepeatingPixel;
               targetIndex += 2;
             }
             repeatingPixelCount = 0;
@@ -340,8 +373,7 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
             sourceIndex -= repeatingPixelCount;
             xIndex -= repeatingPixelCount;
             // end loop
-            repeatingPixelCount = 0;
-            continue;
+            break;
           }
         }
         ++repeatingPixelCount;
