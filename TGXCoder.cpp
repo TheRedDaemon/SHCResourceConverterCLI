@@ -398,7 +398,7 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
     sourceIndex += lineJump;
   }
 
-  const uint32_t requiredPadding{ resultSize % instruction->paddingAlignment };
+  const uint32_t requiredPadding{ instruction->paddingAlignment - resultSize % instruction->paddingAlignment };
   resultSize += requiredPadding;
   if (tgxData->data)
   {
