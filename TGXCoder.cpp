@@ -398,17 +398,21 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
     sourceIndex += lineJump;
   }
 
-  const uint32_t requiredPadding{ instruction->paddingAlignment - resultSize % instruction->paddingAlignment };
-  resultSize += requiredPadding;
-  if (tgxData->data)
+  const uint32_t reminder{ resultSize % instruction->paddingAlignment };
+  if (reminder > 0)
   {
-    if (resultSize > tgxData->dataSize)
+    const uint32_t requiredPadding{ instruction->paddingAlignment - reminder };
+    resultSize += requiredPadding;
+    if (tgxData->data)
     {
-      return TgxCoderResult::INVALID_TGX_DATA_SIZE;
-    }
-    for (uint32_t i{ 0 }; i < requiredPadding; ++i)
-    {
-      tgxData->data[targetIndex++] = TgxStreamMarker::TGX_MARKER_NEWLINE;
+      if (resultSize > tgxData->dataSize)
+      {
+        return TgxCoderResult::INVALID_TGX_DATA_SIZE;
+      }
+      for (uint32_t i{ 0 }; i < requiredPadding; ++i)
+      {
+        tgxData->data[targetIndex++] = TgxStreamMarker::TGX_MARKER_NEWLINE;
+      }
     }
   }
 
