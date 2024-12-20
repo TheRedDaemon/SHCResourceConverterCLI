@@ -5,6 +5,10 @@
 
 #include <fstream>
 
+// TODO: the tile coder might actually need to be precise and not write transparency, assuming the images are
+// placed on the canvas. Should it turn out that this is the case, either the coder needs to be different, or
+// all decoding actually needs to work this way, by initializing the canvas with the correct transparency (without the decoder)
+
 namespace GM1File
 {
   void validateGm1Resource(const Gm1Resource& resource)
