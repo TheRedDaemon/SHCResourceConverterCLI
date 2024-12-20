@@ -67,6 +67,39 @@ struct alignas(int32_t) Gm1Header
   uint16_t colorPalette[10][256];
 };
 
+struct alignas(int32_t) Gm1TileObjectImageInfo
+{
+  uint8_t imagePart;
+  uint8_t subParts;
+  uint16_t tileOffset;
+  uint8_t direction;
+  uint8_t horizontalOffsetOfImage;
+  uint8_t buildingWidth;
+  uint8_t animatedColor; // if alpha 1?
+};
+
+struct alignas(int32_t) Gm1AnimationImageInfo
+{
+  int16_t relativeDataPos;  // seems to be used to point to data to use instead
+  uint16_t unknown_0x2;
+  uint16_t unknown_0x4;
+  uint8_t unknown_0x6;
+  uint8_t flags; // used to indicate together with game flag, if certain animation frames are skipped
+};
+
+struct alignas(int32_t) Gm1FontImageInfo
+{
+  uint16_t unknown_0x0;  // seems to be used to point to data to use instead
+  uint16_t fontRelatedSize;
+  uint32_t unknown_0x4;
+};
+
+union alignas(int32_t) Gm1ImageInfo
+{
+  Gm1AnimationImageInfo animationImageInfo;
+  Gm1FontImageInfo fontImageInfo;
+  Gm1TileObjectImageInfo tileObjectImageInfo;
+};
 
 // source: https://github.com/PodeCaradox/Gm1KonverterCrossPlatform/blob/master/Gm1KonverterCrossPlatform/Files/TGXImageHeader.cs
 struct alignas(int32_t) Gm1ImageHeader
@@ -75,12 +108,7 @@ struct alignas(int32_t) Gm1ImageHeader
   uint16_t height;
   uint16_t offsetX;
   uint16_t offsetY;
-  uint16_t relativeDataPos;  // seems to be used to point to data to use instead
-  uint16_t tileOffset;
-  uint8_t direction;
-  uint8_t horizontalOffsetOfImage;
-  uint8_t buildingWidth;
-  uint8_t animatedColor; // if alpha 1
+  Gm1ImageInfo imageInfo;
 };
 
 /* API STRUCTURES AND ENUMS */
