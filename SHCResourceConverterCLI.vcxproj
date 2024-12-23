@@ -133,6 +133,7 @@
   <ItemGroup>
     <ClCompile Include="BinaryCFileReadHelper.cpp" />
     <ClCompile Include="CLI.cpp" />
+    <ClCompile Include="Gm1Coder.cpp" />
     <ClCompile Include="GM1File.cpp" />
     <ClCompile Include="ResourceMetaFormat.cpp" />
     <ClCompile Include="SHCResourceConverterCLI.cpp" />
@@ -143,6 +144,7 @@
   <ItemGroup>
     <ClInclude Include="BinaryCFileReadHelper.h" />
     <ClInclude Include="CLI.h" />
+    <ClInclude Include="Gm1Coder.h" />
     <ClInclude Include="GM1File.h" />
     <ClInclude Include="Console.h" />
     <ClInclude Include="ResourceMetaFormat.h" />

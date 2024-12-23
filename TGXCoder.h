@@ -18,7 +18,7 @@ enum class TgxCoderResult : int32_t
 
 struct TgxCoderRawInfo
 {
-  uint16_t* data; // it is assumed the buffer is big enough to contain the data indicated by this and the tgy struct
+  uint16_t* data; // it is assumed the buffer is big enough to contain the data indicated by this and the tgx struct
   int rawWidth;
   int rawHeight; // unused in coder, but might be handy
   int rawX;
