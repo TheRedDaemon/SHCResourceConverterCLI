@@ -78,26 +78,14 @@ struct alignas(int32_t) Gm1TileObjectImageInfo
   uint8_t animatedColor; // if alpha 1?
 };
 
-struct alignas(int32_t) Gm1AnimationImageInfo
+struct alignas(int32_t) Gm1GeneralImageInfo
 {
   int16_t relativeDataPos;  // seems to be used to point to data to use instead
-  uint8_t unknown_0x2;
-  uint8_t unknown_0x3;
+  int16_t fontRelatedSize;
   uint8_t unknown_0x4;
   uint8_t unknown_0x5;
   uint8_t unknown_0x6;
   uint8_t flags; // used to indicate together with game flag, if certain animation frames are skipped
-};
-
-struct alignas(int32_t) Gm1FontImageInfo
-{
-  uint8_t unknown_0x0;
-  uint8_t unknown_0x1;
-  uint16_t fontRelatedSize;
-  uint8_t unknown_0x4;
-  uint8_t unknown_0x5;
-  uint8_t unknown_0x6;
-  uint8_t unknown_0x7;
 };
 
 struct alignas(int32_t) Gm1UnknownImageInfo
@@ -114,8 +102,7 @@ struct alignas(int32_t) Gm1UnknownImageInfo
 
 union alignas(int32_t) Gm1ImageInfo
 {
-  Gm1AnimationImageInfo animationImageInfo;
-  Gm1FontImageInfo fontImageInfo;
+  Gm1GeneralImageInfo generalImageInfo;
   Gm1TileObjectImageInfo tileObjectImageInfo;
   Gm1UnknownImageInfo unknownImageInfo;
 };

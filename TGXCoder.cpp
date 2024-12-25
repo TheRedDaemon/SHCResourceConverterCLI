@@ -1,6 +1,6 @@
+#include "TGXCoder.h"
 
 #include "SHCResourceConverter.h"
-#include "TGXCoder.h"
 
 #include <ostream>
 #include <memory>

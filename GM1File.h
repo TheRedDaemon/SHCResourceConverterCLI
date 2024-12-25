@@ -2,6 +2,7 @@
 
 #include "SHCResourceConverter.h"
 
+#include "TGXCoder.h"
 #include "Utility.h"
 
 #include <memory>
@@ -98,6 +99,25 @@ struct std::formatter<Gm1Header> : public std::formatter<std::string>
 };
 
 template<>
+struct std::formatter<Gm1ImageHeader> : public std::formatter<std::string>
+{
+  template<typename FormatContext>
+  auto format(const Gm1ImageHeader& args, FormatContext& ctx) const
+  {
+    return format_to(ctx.out(),
+      "Width: {}\n"
+      "Height: {}\n"
+      "Offset X: {}\n"
+      "Offset Y: {}",
+      args.width,
+      args.height,
+      args.offsetX,
+      args.offsetY
+    );
+  }
+};
+
+template<>
 struct std::formatter<Gm1TileObjectImageInfo> : public std::formatter<std::string>
 {
   template<typename FormatContext>
@@ -123,51 +143,24 @@ struct std::formatter<Gm1TileObjectImageInfo> : public std::formatter<std::strin
 };
 
 template<>
-struct std::formatter<Gm1AnimationImageInfo> : public std::formatter<std::string>
+struct std::formatter<Gm1GeneralImageInfo> : public std::formatter<std::string>
 {
   template<typename FormatContext>
-  auto format(const Gm1AnimationImageInfo& args, FormatContext& ctx) const
+  auto format(const Gm1GeneralImageInfo& args, FormatContext& ctx) const
   {
     return format_to(ctx.out(),
       "Alternative Data Relative Position: {}\n"
-      "Unknown 0x2: {}\n"
-      "Unknown 0x3: {}\n"
-      "Unknown 0x4: {}\n"
-      "Unknown 0x5: {}\n"
-      "Unknown 0x6: {}\n"
-      "Flags: {:b}",
-      args.relativeDataPos,
-      args.unknown_0x2,
-      args.unknown_0x3,
-      args.unknown_0x4,
-      args.unknown_0x5,
-      args.unknown_0x6,
-      args.flags
-    );
-  }
-};
-
-template<>
-struct std::formatter<Gm1FontImageInfo> : public std::formatter<std::string>
-{
-  template<typename FormatContext>
-  auto format(const Gm1FontImageInfo& args, FormatContext& ctx) const
-  {
-    return format_to(ctx.out(),
-      "Unknown 0x0: {}\n"
-      "Unknown 0x1: {}\n"
       "Font Related Size: {}\n"
       "Unknown 0x4: {}\n"
       "Unknown 0x5: {}\n"
       "Unknown 0x6: {}\n"
-      "Unknown 0x7: {}\n",
-      args.unknown_0x0,
-      args.unknown_0x1,
+      "Flags: {:08b}",
+      args.relativeDataPos,
       args.fontRelatedSize,
       args.unknown_0x4,
       args.unknown_0x5,
       args.unknown_0x6,
-      args.unknown_0x7
+      args.flags
     );
   }
 };
@@ -186,7 +179,7 @@ struct std::formatter<Gm1UnknownImageInfo> : public std::formatter<std::string>
       "Unknown 0x4: {}\n"
       "Unknown 0x5: {}\n"
       "Unknown 0x6: {}\n"
-      "Unknown 0x7: {}\n",
+      "Unknown 0x7: {}",
       args.unknown_0x0,
       args.unknown_0x1,
       args.unknown_0x2,
@@ -210,7 +203,7 @@ namespace GM1File
   inline constexpr std::uintmax_t MIN_FILE_SIZE{ sizeof(Gm1Header) }; // guess
   inline constexpr std::uintmax_t MAX_FILE_SIZE{ std::numeric_limits<uint32_t>::max() }; // setting limit
 
-  void validateGm1Resource(const Gm1Resource& resource);
+  void validateGm1Resource(const Gm1Resource& resource, const TgxCoderInstruction& instructions);
 
   UniqueGm1ResourcePointer loadGm1Resource(const std::filesystem::path& file);
   void saveGm1Resource(const std::filesystem::path& file, const Gm1Resource& resource);

@@ -9,6 +9,13 @@
 // placed on the canvas. Should it turn out that this is the case, either the coder needs to be different, or
 // all decoding actually needs to work this way, by initializing the canvas with the correct transparency (without the decoder)
 
+// TODO: it could be, that the only special image data is carried by the tile objects, while all other types share the same image header
+// this needs analysis
+
+// TODO: the meaning of the relative data index field is still strange, for example, super chicken.gm1 would have the number 256
+// in this index (far to big?), but no flag; some interfaces have -1 in there and a fitting flag for the case that in game flag
+// would be true, despite them not having a fitting earlier part; this needs more checks
+
 namespace GM1File
 {
   static bool validateGm1UncompressedResource(const Gm1Resource& resource)
@@ -16,14 +23,34 @@ namespace GM1File
     throw std::exception("No support for uncompressed resource validation yet.");
   }
 
-  static bool validateGm1TgxResource(const Gm1Resource& resource)
+  static bool validateGm1TgxResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions)
   {
-    throw std::exception("No support for TGX based resource validation yet.");
-  }
+    for (size_t i{ 0 }; i < resource.gm1Header->numberOfPicturesInFile; ++i)
+    {
+      const Gm1Image& image{ resource.imageHeaders[i] };
+      const uint32_t offset{ resource.imageOffsets[i] };
+      const uint32_t size{ resource.imageSizes[i] };
 
-  static bool validateGm1FontResource(const Gm1Resource& resource)
-  {
-    throw std::exception("No support for font resource validation yet.");
+      Out("### Image {} ###\n{}\n\n{}\n\n", i, image.imageHeader, image.imageInfo.generalImageInfo);
+
+      const TgxCoderTgxInfo tgxInfo{
+        .data{ resource.imageData + offset },
+        .dataSize{ size },
+        .tgxWidth{ image.imageHeader.width },
+        .tgxHeight{ image.imageHeader.height }
+      };
+      Out("# General TGX info #\n{}\n\n", tgxInfo);
+
+      TgxAnalysis tgxAnalysis{};
+      const TgxCoderResult result{ analyzeTgxToRaw(&tgxInfo, &instructions, &tgxAnalysis) };
+      if (result != TgxCoderResult::SUCCESS)
+      {
+        Out("{}\n", std::string_view{ getTgxResultDescription(result) });
+        return false;
+      }
+      Out("# Structure meta data #\n{}\n\n", tgxAnalysis);
+    }
+    return true;
   }
 
   static bool validateGm1TileObjectResource(const Gm1Resource& resource)
@@ -36,7 +63,7 @@ namespace GM1File
     throw std::exception("No support for animation resource validation yet.");
   }
 
-  void validateGm1Resource(const Gm1Resource& resource)
+  void validateGm1Resource(const Gm1Resource& resource, const TgxCoderInstruction& instructions)
   {
     Log(LogLevel::INFO, "Try validating given resource.");
 
@@ -50,10 +77,8 @@ namespace GM1File
     {
     case Gm1Type::GM1_TYPE_INTERFACE:
     case Gm1Type::GM1_TYPE_TGX_CONST_SIZE:
-      validationSuccessful = validateGm1TgxResource(resource);
-      break;
     case Gm1Type::GM1_TYPE_FONT:
-      validationSuccessful = validateGm1FontResource(resource);
+      validationSuccessful = validateGm1TgxResource(resource, instructions);
       break;
     case Gm1Type::GM1_TYPE_TILES_OBJECT:
       validationSuccessful = validateGm1TileObjectResource(resource);
@@ -73,12 +98,12 @@ namespace GM1File
 
     if (validationSuccessful)
     {
-      Out("\n### GM1 seems valid ###\n");
+      Out("### GM1 seems valid ###\n");
       Log(LogLevel::INFO, "Validation completed successfully.");
     }
     else
     {
-      Out("\n### GM1 seems invalid. ###\n");
+      Out("\n### GM1 seems invalid. Remaining checks are skipped. ###\n");
       Log(LogLevel::ERROR, "Validation completed. TGX is invalid.");
     }
   }

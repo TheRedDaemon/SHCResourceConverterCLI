@@ -175,7 +175,7 @@ static int executeTest(const CLIArguments& cliArguments)
       {
         return 1;
       }
-      GM1File::validateGm1Resource(*gm1Resource);
+      GM1File::validateGm1Resource(*gm1Resource, getCoderInstructionFromCliOptionsWithFallback(cliArguments));
     }
     break;
     default:
