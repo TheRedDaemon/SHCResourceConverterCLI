@@ -53,7 +53,7 @@ struct std::formatter<Gm1CoderDataInfo> : public std::formatter<std::string>
 
 constexpr uint16_t RAW_TRANSPARENT{ 0 }; // for placing transparency and identification of it
 
-consteval int TILE_BYTE_SIZE{ 0x200 };
+constexpr int TILE_BYTE_SIZE{ 0x200 };
 constexpr int TILE_WIDTH{ 30 };
 constexpr int TILE_HEIGHT{ 16 };
 
@@ -67,3 +67,6 @@ extern "C" __declspec(dllexport) Gm1CoderResult encodeRawToTile(const Gm1CoderRa
 // simply copies the given uncompressed data to raw, not much checks are done
 extern "C" __declspec(dllexport) Gm1CoderResult copyUncompressedToRaw(const Gm1CoderDataInfo* uncompressed, Gm1CoderRawInfo* raw);
 extern "C" __declspec(dllexport) Gm1CoderResult copyRawToUncompressed(const Gm1CoderRawInfo* raw, Gm1CoderDataInfo* uncompressed);
+
+// get a string description of the result, never returns nullptr
+extern "C" __declspec(dllexport) const char* getGm1ResultDescription(const Gm1CoderResult result);

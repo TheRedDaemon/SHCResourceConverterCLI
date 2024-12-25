@@ -42,28 +42,28 @@ enum class Gm1Type : int32_t
 // source: https://github.com/PodeCaradox/Gm1KonverterCrossPlatform/blob/master/Gm1KonverterCrossPlatform/Files/GM1FileHeader.cs
 struct alignas(int32_t) Gm1Header
 {
-  uint32_t unknownField1;
-  uint32_t unknownField2;
-  uint32_t unknownField3;
+  uint32_t unknown_0x0;
+  uint32_t unknown_0x4;
+  uint32_t unknown_0x8;
   uint32_t numberOfPicturesInFile;
-  uint32_t unknownField5;
+  uint32_t unknown_0x10;
   Gm1Type gm1Type;
-  uint32_t unknownField7;
-  uint32_t unknownField8;
-  uint32_t unknownField9;
-  uint32_t unknownField10;
-  uint32_t unknownField11;
-  uint32_t unknownField12;
+  uint32_t unknown_0x18;
+  uint32_t unknown_0x1C;
+  uint32_t unknown_0x20;
+  uint32_t unknown_0x24;
+  uint32_t unknown_0x28;
+  uint32_t unknown_0x2C;
   uint32_t width;
   uint32_t height;
-  uint32_t unknownField15;
-  uint32_t unknownField16;
-  uint32_t unknownField17;
-  uint32_t unknownField18;
+  uint32_t unknown_0x38;
+  uint32_t unknown_0x3C;
+  uint32_t unknown_0x40;
+  uint32_t unknown_0x44;
   uint32_t originX;
   uint32_t originY;
   uint32_t dataSize;
-  uint32_t unknownField22;
+  uint32_t unknown_0x54;
   uint16_t colorPalette[10][256];
 };
 
@@ -81,17 +81,35 @@ struct alignas(int32_t) Gm1TileObjectImageInfo
 struct alignas(int32_t) Gm1AnimationImageInfo
 {
   int16_t relativeDataPos;  // seems to be used to point to data to use instead
-  uint16_t unknown_0x2;
-  uint16_t unknown_0x4;
+  uint8_t unknown_0x2;
+  uint8_t unknown_0x3;
+  uint8_t unknown_0x4;
+  uint8_t unknown_0x5;
   uint8_t unknown_0x6;
   uint8_t flags; // used to indicate together with game flag, if certain animation frames are skipped
 };
 
 struct alignas(int32_t) Gm1FontImageInfo
 {
-  uint16_t unknown_0x0;  // seems to be used to point to data to use instead
+  uint8_t unknown_0x0;
+  uint8_t unknown_0x1;
   uint16_t fontRelatedSize;
-  uint32_t unknown_0x4;
+  uint8_t unknown_0x4;
+  uint8_t unknown_0x5;
+  uint8_t unknown_0x6;
+  uint8_t unknown_0x7;
+};
+
+struct alignas(int32_t) Gm1UnknownImageInfo
+{
+  uint8_t unknown_0x0;
+  uint8_t unknown_0x1;
+  uint8_t unknown_0x2;
+  uint8_t unknown_0x3;
+  uint8_t unknown_0x4;
+  uint8_t unknown_0x5;
+  uint8_t unknown_0x6;
+  uint8_t unknown_0x7;
 };
 
 union alignas(int32_t) Gm1ImageInfo
@@ -99,15 +117,21 @@ union alignas(int32_t) Gm1ImageInfo
   Gm1AnimationImageInfo animationImageInfo;
   Gm1FontImageInfo fontImageInfo;
   Gm1TileObjectImageInfo tileObjectImageInfo;
+  Gm1UnknownImageInfo unknownImageInfo;
 };
 
-// source: https://github.com/PodeCaradox/Gm1KonverterCrossPlatform/blob/master/Gm1KonverterCrossPlatform/Files/TGXImageHeader.cs
 struct alignas(int32_t) Gm1ImageHeader
 {
   uint16_t width;
   uint16_t height;
   uint16_t offsetX;
   uint16_t offsetY;
+};
+
+// source: https://github.com/PodeCaradox/Gm1KonverterCrossPlatform/blob/master/Gm1KonverterCrossPlatform/Files/TGXImageHeader.cs
+struct alignas(int32_t) Gm1Image
+{
+  Gm1ImageHeader imageHeader;
   Gm1ImageInfo imageInfo;
 };
 
@@ -140,6 +164,6 @@ struct Gm1Resource
   Gm1Header* gm1Header;
   uint32_t* imageOffsets;
   uint32_t* imageSizes;
-  Gm1ImageHeader* imageHeaders;
+  Gm1Image* imageHeaders;
   uint8_t* imageData;
 };

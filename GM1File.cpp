@@ -11,9 +11,76 @@
 
 namespace GM1File
 {
+  static bool validateGm1UncompressedResource(const Gm1Resource& resource)
+  {
+    throw std::exception("No support for uncompressed resource validation yet.");
+  }
+
+  static bool validateGm1TgxResource(const Gm1Resource& resource)
+  {
+    throw std::exception("No support for TGX based resource validation yet.");
+  }
+
+  static bool validateGm1FontResource(const Gm1Resource& resource)
+  {
+    throw std::exception("No support for font resource validation yet.");
+  }
+
+  static bool validateGm1TileObjectResource(const Gm1Resource& resource)
+  {
+    throw std::exception("No support for tile object resource validation yet.");
+  }
+
+  static bool validateGm1AnimationResource(const Gm1Resource& resource)
+  {
+    throw std::exception("No support for animation resource validation yet.");
+  }
+
   void validateGm1Resource(const Gm1Resource& resource)
   {
-    throw std::exception{ "Not yet implemented." };
+    Log(LogLevel::INFO, "Try validating given resource.");
+
+    Out("### General GM1 info ###\nType: {}\nNumber of pictures: {}\nImage data size: {}\n\n",
+      resource.gm1Header->gm1Type, resource.gm1Header->numberOfPicturesInFile, resource.gm1Header->dataSize);
+
+    Out("### GM1 Header ###\n{}\n\n", *resource.gm1Header);
+
+    bool validationSuccessful{ false };
+    switch (resource.gm1Header->gm1Type)
+    {
+    case Gm1Type::GM1_TYPE_INTERFACE:
+    case Gm1Type::GM1_TYPE_TGX_CONST_SIZE:
+      validationSuccessful = validateGm1TgxResource(resource);
+      break;
+    case Gm1Type::GM1_TYPE_FONT:
+      validationSuccessful = validateGm1FontResource(resource);
+      break;
+    case Gm1Type::GM1_TYPE_TILES_OBJECT:
+      validationSuccessful = validateGm1TileObjectResource(resource);
+      break;
+    case Gm1Type::GM1_TYPE_ANIMATIONS:
+      validationSuccessful = validateGm1AnimationResource(resource);
+      break;
+    case Gm1Type::GM1_TYPE_NO_COMPRESSION_1:
+    case Gm1Type::GM1_TYPE_NO_COMPRESSION_2:
+      validationSuccessful = validateGm1UncompressedResource(resource);
+      break;
+
+    default:
+      Log(LogLevel::ERROR, "Resource has unknown type.");
+      break;
+    }
+
+    if (validationSuccessful)
+    {
+      Out("\n### GM1 seems valid ###\n");
+      Log(LogLevel::INFO, "Validation completed successfully.");
+    }
+    else
+    {
+      Out("\n### GM1 seems invalid. ###\n");
+      Log(LogLevel::ERROR, "Validation completed. TGX is invalid.");
+    }
   }
 
   UniqueGm1ResourcePointer loadGm1Resource(const std::filesystem::path& file)
@@ -54,7 +121,7 @@ namespace GM1File
     const uint32_t gm1BodySize{ size - sizeof(Gm1Header) };
 
     // check if info in header matches data size in body (full size = header + (imageOffset + imageSize + imageHeader) * imageNumber + dataSize)
-    if (resource->gm1Header->dataSize != gm1BodySize - (2 * sizeof(uint32_t) + sizeof(Gm1ImageHeader)) * numberOfImages)
+    if (resource->gm1Header->dataSize != gm1BodySize - (2 * sizeof(uint32_t) + sizeof(Gm1Image)) * numberOfImages)
     {
       Log(LogLevel::ERROR, "Provided GM1 body does not have the size as specified in the header.");
       return {};
@@ -70,8 +137,8 @@ namespace GM1File
     in.read(reinterpret_cast<char*>(resource.get()) + sizeof(Gm1Resource) + sizeof(Gm1Header), gm1BodySize);
     resource->imageOffsets = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(resource->gm1Header) + sizeof(Gm1Header));
     resource->imageSizes = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(resource->imageOffsets) + sizeof(uint32_t) * numberOfImages);
-    resource->imageHeaders = reinterpret_cast<Gm1ImageHeader*>(reinterpret_cast<uint8_t*>(resource->imageSizes) + sizeof(uint32_t) * numberOfImages);
-    resource->imageData = reinterpret_cast<uint8_t*>(resource->imageHeaders) + sizeof(Gm1ImageHeader) * numberOfImages;
+    resource->imageHeaders = reinterpret_cast<Gm1Image*>(reinterpret_cast<uint8_t*>(resource->imageSizes) + sizeof(uint32_t) * numberOfImages);
+    resource->imageData = reinterpret_cast<uint8_t*>(resource->imageHeaders) + sizeof(Gm1Image) * numberOfImages;
 
     // individual images are not checked without explicit validation
 
@@ -96,7 +163,7 @@ namespace GM1File
       out.write(reinterpret_cast<char*>(resource.gm1Header), sizeof(Gm1Header));
       out.write(reinterpret_cast<char*>(resource.imageOffsets), sizeof(uint32_t) * numberOfImages);
       out.write(reinterpret_cast<char*>(resource.imageSizes), sizeof(uint32_t) * numberOfImages);
-      out.write(reinterpret_cast<char*>(resource.imageHeaders), sizeof(Gm1ImageHeader) * numberOfImages);
+      out.write(reinterpret_cast<char*>(resource.imageHeaders), sizeof(Gm1Image) * numberOfImages);
       out.write(reinterpret_cast<char*>(resource.imageData), resource.gm1Header->dataSize);
     }
 

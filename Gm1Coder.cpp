@@ -32,14 +32,14 @@ extern "C" __declspec(dllexport) Gm1CoderResult decodeTileToRaw(const uint16_t* 
   size_t targetIndex{ raw->rawX + static_cast<uint64_t>(raw->rawWidth) * raw->rawY };
   for (int y{ -HALF_TILE_HEIGHT }; y <= HALF_TILE_HEIGHT; ++y)
   {
+    if (y == 0)
+    {
+      continue;
+    }
+    const int yAbs{ y < 0 ? -y : y };
     for (int x{ -QUARTER_TILE_WIDTH }; x <= QUARTER_TILE_WIDTH; ++x)
     {
-      if (y == 0)
-      {
-        continue;
-      }
       const int xAbs{ x < 0 ? -x : x };
-      const int yAbs{ y < 0 ? -y : y };
       if (xAbs + yAbs <= HALF_TILE_WIDTH)
       {
         raw->raw[targetIndex++] = tile[sourceIndex++];
@@ -73,14 +73,15 @@ extern "C" __declspec(dllexport) Gm1CoderResult encodeRawToTile(const Gm1CoderRa
   size_t targetIndex{ 0 };
   for (int y{ -HALF_TILE_HEIGHT }; y <= HALF_TILE_HEIGHT; ++y)
   {
+    if (y == 0)
+    {
+      continue;
+    }
+    const int yAbs{ y < 0 ? -y : y };
     for (int x{ -QUARTER_TILE_WIDTH }; x <= QUARTER_TILE_WIDTH; ++x)
     {
-      if (y == 0)
-      {
-        continue;
-      }
+      
       const int xAbs{ x < 0 ? -x : x };
-      const int yAbs{ y < 0 ? -y : y };
       if (xAbs + yAbs <= HALF_TILE_WIDTH)
       {
         if (tile)
@@ -116,7 +117,7 @@ extern "C" __declspec(dllexport) Gm1CoderResult copyUncompressedToRaw(const Gm1C
   {
     return Gm1CoderResult::MISSING_REQUIRED_PARAMETER;
   }
-  if (uncompressed->dataSize != uncompressed->dataWidth * uncompressed->dataHeight)
+  if (uncompressed->dataSize * 2 != uncompressed->dataWidth * uncompressed->dataHeight)
   {
     return Gm1CoderResult::INVALID_DATA_SIZE;
   }
@@ -146,7 +147,7 @@ extern "C" __declspec(dllexport) Gm1CoderResult copyRawToUncompressed(const Gm1C
   {
     return Gm1CoderResult::MISSING_REQUIRED_PARAMETER;
   }
-  if (uncompressed->dataSize != uncompressed->dataWidth * uncompressed->dataHeight)
+  if (uncompressed->dataSize * 2 != uncompressed->dataWidth * uncompressed->dataHeight)
   {
     return Gm1CoderResult::INVALID_DATA_SIZE;
   }
@@ -171,3 +172,26 @@ extern "C" __declspec(dllexport) Gm1CoderResult copyRawToUncompressed(const Gm1C
 }
 
 // TODO implement TGX coder for 8bit variant -> how to do? mix with file?
+
+const char* getGm1ResultDescription(const Gm1CoderResult result)
+{
+  switch (result)
+  {
+  case Gm1CoderResult::SUCCESS:
+    return "Coder completed successfully.";
+  case Gm1CoderResult::CHECKED_PARAMETER:
+    return "Parameter check and/or dry run completed successfully.";
+
+  case Gm1CoderResult::MISSING_REQUIRED_PARAMETER:
+    return "Coder was not given the parameter required for de- or encoding.";
+  case Gm1CoderResult::INVALID_DATA_SIZE:
+      return "The given data size does not relate to the given dimensions.";
+  case Gm1CoderResult::EXPECTED_TRANSPARENT_PIXEL:
+    return "The coder expected to find a transparent pixel in the source, but encountered another color.";
+  case Gm1CoderResult::CANVAS_CAN_NOT_CONTAIN_IMAGE:
+    return "The given data does indicate that the image can not be contained in raw 2D pixel canvas.";
+
+  default:
+    return "Encountered unknown decoder analysis result. This should not happen.";
+  }
+}
