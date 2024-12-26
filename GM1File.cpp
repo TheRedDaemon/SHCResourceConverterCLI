@@ -1,5 +1,7 @@
 #include "GM1File.h"
 
+#include "Gm1Coder.h"
+
 #include "Console.h"
 #include "ResourceMetaFormat.h"
 
@@ -15,12 +17,45 @@
 // TODO: the meaning of the relative data index field is still strange, for example, super chicken.gm1 would have the number 256
 // in this index (far to big?), but no flag; some interfaces have -1 in there and a fitting flag for the case that in game flag
 // would be true, despite them not having a fitting earlier part; this needs more checks
+// although, the flag mode might be unfinished or broken: there are other conditions for this "flag" not being 0, and while
+// the menu worked, going on the map crashed the map in my test, so maybe everything that has not the 4 bit flag + the relative pos
+// might simply be leftovers
 
 namespace GM1File
 {
-  static bool validateGm1UncompressedResource(const Gm1Resource& resource)
+  static bool validateGm1UncompressedResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions)
   {
-    throw std::exception("No support for uncompressed resource validation yet.");
+    for (size_t i{ 0 }; i < resource.gm1Header->numberOfPicturesInFile; ++i)
+    {
+      const Gm1Image& image{ resource.imageHeaders[i] };
+      const uint32_t offset{ resource.imageOffsets[i] };
+      const uint32_t size{ resource.imageSizes[i] };
+
+      Out("### Image {} ###\n{}\n\n{}\n\n", i, image.imageHeader, image.imageInfo.generalImageInfo);
+
+      const Gm1CoderDataInfo dataInfo{
+        .data{ resource.imageData + offset },
+        .dataSize{ size },
+        .dataWidth{ image.imageHeader.width },
+        .dataHeight{ image.imageHeader.height },
+      };
+      Out("# General Image Info #\n{}\n\n", dataInfo);
+
+      Gm1CoderRawInfo rawInfo{
+        .raw{ nullptr },
+        .rawWidth{ image.imageHeader.width },
+        .rawHeight{ image.imageHeader.height },
+        .rawX{ 0 },
+        .rawY{ 0 },
+      };
+      const Gm1CoderResult result{ copyUncompressedToRaw(&dataInfo, &rawInfo, instructions.transparentPixelRawColor) };
+      if (result != Gm1CoderResult::CHECKED_PARAMETER)
+      {
+        Out("{}\n", std::string_view{ getGm1ResultDescription(result) });
+        return false;
+      }
+    }
+    return true;
   }
 
   static bool validateGm1TgxResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions)
@@ -39,7 +74,7 @@ namespace GM1File
         .tgxWidth{ image.imageHeader.width },
         .tgxHeight{ image.imageHeader.height }
       };
-      Out("# General TGX info #\n{}\n\n", tgxInfo);
+      Out("# General TGX Info #\n{}\n\n", tgxInfo);
 
       TgxAnalysis tgxAnalysis{};
       const TgxCoderResult result{ analyzeTgxToRaw(&tgxInfo, &instructions, &tgxAnalysis) };
@@ -48,7 +83,7 @@ namespace GM1File
         Out("{}\n", std::string_view{ getTgxResultDescription(result) });
         return false;
       }
-      Out("# Structure meta data #\n{}\n\n", tgxAnalysis);
+      Out("# Structure Meta Data #\n{}\n\n", tgxAnalysis);
     }
     return true;
   }
@@ -88,7 +123,7 @@ namespace GM1File
       break;
     case Gm1Type::GM1_TYPE_NO_COMPRESSION_1:
     case Gm1Type::GM1_TYPE_NO_COMPRESSION_2:
-      validationSuccessful = validateGm1UncompressedResource(resource);
+      validationSuccessful = validateGm1UncompressedResource(resource, instructions);
       break;
 
     default:

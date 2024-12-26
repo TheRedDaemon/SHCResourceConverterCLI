@@ -8,6 +8,7 @@ enum class Gm1CoderResult : int32_t
 {
   SUCCESS,
   CHECKED_PARAMETER,
+  FILLED_ENCODING_SIZE,
   MISSING_REQUIRED_PARAMETER,
   CANVAS_CAN_NOT_CONTAIN_IMAGE,
   EXPECTED_TRANSPARENT_PIXEL,
@@ -65,8 +66,8 @@ extern "C" __declspec(dllexport) Gm1CoderResult decodeTileToRaw(const uint16_t* 
 extern "C" __declspec(dllexport) Gm1CoderResult encodeRawToTile(const Gm1CoderRawInfo* raw, uint16_t* tile, uint16_t transparentColor);
 
 // simply copies the given uncompressed data to raw, not much checks are done
-extern "C" __declspec(dllexport) Gm1CoderResult copyUncompressedToRaw(const Gm1CoderDataInfo* uncompressed, Gm1CoderRawInfo* raw);
-extern "C" __declspec(dllexport) Gm1CoderResult copyRawToUncompressed(const Gm1CoderRawInfo* raw, Gm1CoderDataInfo* uncompressed);
+extern "C" __declspec(dllexport) Gm1CoderResult copyUncompressedToRaw(const Gm1CoderDataInfo* uncompressed, Gm1CoderRawInfo* raw, uint16_t transparentColor);
+extern "C" __declspec(dllexport) Gm1CoderResult copyRawToUncompressed(const Gm1CoderRawInfo* raw, Gm1CoderDataInfo* uncompressed, uint16_t transparentColor);
 
 // get a string description of the result, never returns nullptr
 extern "C" __declspec(dllexport) const char* getGm1ResultDescription(const Gm1CoderResult result);

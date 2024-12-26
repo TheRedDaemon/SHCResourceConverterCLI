@@ -1,6 +1,5 @@
 #include "Gm1Coder.h"
 
-
 static constexpr int HALF_TILE_WIDTH{ TILE_WIDTH / 2 };
 static constexpr int QUARTER_TILE_WIDTH{ HALF_TILE_WIDTH / 2 };
 static constexpr int HALF_TILE_HEIGHT{ TILE_HEIGHT / 2 };
@@ -111,19 +110,21 @@ extern "C" __declspec(dllexport) Gm1CoderResult encodeRawToTile(const Gm1CoderRa
   return tile ? Gm1CoderResult::SUCCESS : Gm1CoderResult::CHECKED_PARAMETER;
 }
 
-extern "C" __declspec(dllexport) Gm1CoderResult copyUncompressedToRaw(const Gm1CoderDataInfo* uncompressed, Gm1CoderRawInfo* raw)
+Gm1CoderResult copyUncompressedToRaw(const Gm1CoderDataInfo* uncompressed, Gm1CoderRawInfo* raw, uint16_t transparentColor)
 {
   if (!(uncompressed && raw))
   {
     return Gm1CoderResult::MISSING_REQUIRED_PARAMETER;
   }
-  if (uncompressed->dataSize * 2 != uncompressed->dataWidth * uncompressed->dataHeight)
-  {
-    return Gm1CoderResult::INVALID_DATA_SIZE;
-  }
-  if (!isRectContainedInCanvas(raw->rawX, raw->rawY, TILE_WIDTH, TILE_HEIGHT, raw->rawWidth, raw->rawHeight))
+  if (!isRectContainedInCanvas(raw->rawX, raw->rawY, uncompressed->dataWidth, uncompressed->dataHeight, raw->rawWidth, raw->rawHeight))
   {
     return Gm1CoderResult::CANVAS_CAN_NOT_CONTAIN_IMAGE;
+  }
+  // the data might not fill every horizontal line
+  const size_t lineSize{ uncompressed->dataWidth * sizeof(uint16_t) };
+  if (uncompressed->dataSize > lineSize * uncompressed->dataHeight || uncompressed->dataSize % lineSize != 0)
+  {
+    return Gm1CoderResult::INVALID_DATA_SIZE;
   }
   if (!raw->raw)
   {
@@ -132,43 +133,98 @@ extern "C" __declspec(dllexport) Gm1CoderResult copyUncompressedToRaw(const Gm1C
 
   size_t sourceIndex{ 0 };
   size_t targetIndex{ raw->rawX + static_cast<uint64_t>(raw->rawWidth) * raw->rawY };
-  for (int y{ 0 }; y < uncompressed->dataHeight; ++y)
+  const size_t linesWithData{ uncompressed->dataSize / lineSize };
+  for (int y{ 0 }; y < linesWithData; ++y)
   {
     std::memcpy(raw->raw + targetIndex, uncompressed->data + sourceIndex, uncompressed->dataWidth * sizeof(uint16_t));
-    sourceIndex += uncompressed->dataWidth * 2;
+    sourceIndex += uncompressed->dataWidth * sizeof(uint16_t);
     targetIndex += raw->rawWidth;
+  }
+  // fill remaining lines with transparent color
+  const int lineJump{ raw->rawWidth - uncompressed->dataWidth };
+  for (int y{ 0 }; y < uncompressed->dataHeight - linesWithData; ++y)
+  {
+    for (int x{ 0 }; x < uncompressed->dataWidth; ++x)
+    {
+      raw->raw[targetIndex++] = transparentColor;
+    }
+    targetIndex += lineJump;
   }
   return Gm1CoderResult::SUCCESS;
 }
 
-extern "C" __declspec(dllexport) Gm1CoderResult copyRawToUncompressed(const Gm1CoderRawInfo* raw, Gm1CoderDataInfo* uncompressed)
+Gm1CoderResult copyRawToUncompressed(const Gm1CoderRawInfo* raw, Gm1CoderDataInfo* uncompressed, uint16_t transparentColor)
 {
   if (!(raw && uncompressed))
   {
     return Gm1CoderResult::MISSING_REQUIRED_PARAMETER;
   }
-  if (uncompressed->dataSize * 2 != uncompressed->dataWidth * uncompressed->dataHeight)
-  {
-    return Gm1CoderResult::INVALID_DATA_SIZE;
-  }
-  if (!isRectContainedInCanvas(raw->rawX, raw->rawY, TILE_WIDTH, TILE_HEIGHT, raw->rawWidth, raw->rawHeight))
+  if (!isRectContainedInCanvas(raw->rawX, raw->rawY, uncompressed->dataWidth, uncompressed->dataHeight, raw->rawWidth, raw->rawHeight))
   {
     return Gm1CoderResult::CANVAS_CAN_NOT_CONTAIN_IMAGE;
   }
-  if (!uncompressed->data)
-  {
-    return Gm1CoderResult::CHECKED_PARAMETER;
-  }
+  // the data might not fill every horizontal line
+  const size_t lineSize{ uncompressed->dataWidth * sizeof(uint16_t) };
 
   size_t sourceIndex{ raw->rawX + static_cast<uint64_t>(raw->rawWidth) * raw->rawY };
-  size_t targetIndex{ 0 };
-  for (int y{ 0 }; y < uncompressed->dataHeight; ++y)
+  size_t linesWithData{ 0 };
+  if (uncompressed->data)
   {
-    std::memcpy(uncompressed->data + targetIndex, raw->raw + sourceIndex, uncompressed->dataWidth * sizeof(uint16_t));
-    sourceIndex += raw->rawWidth;
-    targetIndex += uncompressed->dataWidth * 2;
+    // copy data into receiver
+    if (uncompressed->dataSize > static_cast<int64_t>(lineSize) * uncompressed->dataHeight || uncompressed->dataSize % lineSize != 0)
+    {
+      return Gm1CoderResult::INVALID_DATA_SIZE;
+    }
+
+    size_t targetIndex{ 0 };
+    linesWithData = uncompressed->dataSize / lineSize;
+    for (int y{ 0 }; y < uncompressed->dataHeight - linesWithData; ++y)
+    {
+      std::memcpy(uncompressed->data + targetIndex, raw->raw + sourceIndex, uncompressed->dataWidth * sizeof(uint16_t));
+      sourceIndex += raw->rawWidth;
+      targetIndex += uncompressed->dataWidth * sizeof(uint16_t);
+    }
   }
-  return Gm1CoderResult::SUCCESS;
+  else
+  {
+    // determine needed size
+    for (; linesWithData < uncompressed->dataHeight; ++linesWithData)
+    {
+      for (int x{ 0 }; x < uncompressed->dataWidth; ++x)
+      {
+        if (raw->raw[sourceIndex + x] == transparentColor)
+        {
+          goto transparencyFound;
+        }
+      }
+      sourceIndex += raw->rawWidth;
+    }
+  transparencyFound:;
+  }
+
+  // validate that only transparent pixels are left at the end
+  const int lineJump{ raw->rawWidth - uncompressed->dataWidth };
+  for (int y{ 0 }; y < uncompressed->dataHeight - linesWithData; ++y)
+  {
+    for (int x{ 0 }; x < uncompressed->dataWidth; ++x)
+    {
+      if (raw->raw[sourceIndex++] != transparentColor)
+      {
+        return Gm1CoderResult::EXPECTED_TRANSPARENT_PIXEL;
+      }
+    }
+    sourceIndex += lineJump;
+  }
+
+  if (uncompressed->data)
+  {
+    return Gm1CoderResult::SUCCESS;
+  }
+  else
+  {
+    uncompressed->dataSize = static_cast<uint32_t>(linesWithData * lineSize);
+    return Gm1CoderResult::FILLED_ENCODING_SIZE;
+  }
 }
 
 // TODO implement TGX coder for 8bit variant -> how to do? mix with file?
@@ -181,6 +237,8 @@ const char* getGm1ResultDescription(const Gm1CoderResult result)
     return "Coder completed successfully.";
   case Gm1CoderResult::CHECKED_PARAMETER:
     return "Parameter check and/or dry run completed successfully.";
+  case Gm1CoderResult::FILLED_ENCODING_SIZE:
+    return "Dry run completed successfully. Additionally, the data size was filled into given out struct.";
 
   case Gm1CoderResult::MISSING_REQUIRED_PARAMETER:
     return "Coder was not given the parameter required for de- or encoding.";
