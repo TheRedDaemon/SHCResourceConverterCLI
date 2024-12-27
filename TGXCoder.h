@@ -128,7 +128,12 @@ constexpr uint16_t GAME_TRANSPARENT_COLOR{ 0b1111100000011111 }; // used by game
 constexpr uint16_t TGX_FILE_TRANSPARENT{ 0 }; // for placing transparency and identification of it
 constexpr int TGX_FILE_PIXEL_REPEAT_THRESHOLD{ 3 }; // requires testing with other files
 constexpr int TGX_FILE_PADDING_ALIGNMENT{ 4 }; // requires testing with other files
-constexpr TgxCoderInstruction TGX_FILE_DEFAULT_INSTRUCTION{ GAME_TRANSPARENT_COLOR, TGX_FILE_TRANSPARENT, TGX_FILE_PIXEL_REPEAT_THRESHOLD, TGX_FILE_PADDING_ALIGNMENT };
+inline constexpr TgxCoderInstruction TGX_FILE_DEFAULT_INSTRUCTION{
+  .transparentPixelTgxColor{ GAME_TRANSPARENT_COLOR },
+  .transparentPixelRawColor{ TGX_FILE_TRANSPARENT },
+  .pixelRepeatThreshold{ TGX_FILE_PIXEL_REPEAT_THRESHOLD },
+  .paddingAlignment{ TGX_FILE_PADDING_ALIGNMENT },
+};
 
 extern "C" __declspec(dllexport) TgxCoderResult analyzeTgxToRaw(const TgxCoderTgxInfo* tgxData, const TgxCoderInstruction* instruction, TgxAnalysis* tgxAnalysis);
 extern "C" __declspec(dllexport) TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* rawData, const TgxCoderInstruction* instruction, TgxAnalysis* tgxAnalysis);

@@ -88,12 +88,71 @@ namespace GM1File
     return true;
   }
 
-  static bool validateGm1TileObjectResource(const Gm1Resource& resource)
+  static bool validateGm1TileObjectResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions)
   {
-    throw std::exception("No support for tile object resource validation yet.");
+    for (size_t i{ 0 }; i < resource.gm1Header->numberOfPicturesInFile; ++i)
+    {
+      const Gm1Image& image{ resource.imageHeaders[i] };
+      const uint32_t offset{ resource.imageOffsets[i] };
+      const uint32_t size{ resource.imageSizes[i] };
+
+      Out("### Image {} ###\n{}\n\n{}\n\n", i, image.imageHeader, image.imageInfo.tileObjectImageInfo);
+
+      // the size contains the tile, so this should work
+      Gm1CoderRawInfo rawInfo{
+        .raw{ nullptr },
+        .rawWidth{ image.imageHeader.width },
+        .rawHeight{ image.imageHeader.height },
+        .rawX{ 0 },
+        .rawY{ 0 },
+      };
+      const Gm1CoderResult tileResult{ decodeTileToRaw(reinterpret_cast<uint16_t*>(resource.imageData + offset), &rawInfo, instructions.transparentPixelRawColor) };
+      if (tileResult != Gm1CoderResult::CHECKED_PARAMETER)
+      {
+        Out("{}\n", std::string_view{ getGm1ResultDescription(tileResult) });
+        return false;
+      }
+
+      if (image.imageInfo.tileObjectImageInfo.direction == 0)
+      {
+        continue;
+      }
+
+      // TODO: as of now, the height seems to be not included in the data, this is horrible
+      // needs more tests, but more likely we need to create a version of the decoder or analyzer that allows to determine the height
+      // TODO: the height of the tgx is always tileOffset + 7, which is strange, as it is the same as height - tile height + 7
+      // the most likely reason: the data is actually displayed in the GmCrossConverter like it is in the data, with the TGX sunken into 
+      // the space of the tile, this would be a very important thing to know, as is would change how the decoder would work
+      // how can this even work then? Assuming the tiles are packed together, meta info would need to be used, no way around this
+      // width and offset would point to the start of the tgx, and the actual tile part would need to be ignored
+      // this would even more point to the idea that before decoding, the image was copied to and intermediate buffer, with this then
+      // being used to encode the data
+      // there is a small change the offset is only used to allow the gap between the tile and the tgx, and they are actually not have
+      // overlapping Rects, but the chance is small, more likely -> copy offset rect -> split into different rects and encode them separately
+      // TODO: check Ghidra, to really understand the image info values
+      // finished testing, seems to work: copy offset rect -> split into different rects and encode them separately seems to be the case
+      // there seems to be a weirdness in the encoded data, this also needs analysis (maybe the encoder respected the tile edge?
+      const TgxCoderTgxInfo tgxInfo{
+        .data{ resource.imageData + offset + TILE_BYTE_SIZE },
+        .dataSize{ size - TILE_BYTE_SIZE },
+        .tgxWidth{ image.imageInfo.tileObjectImageInfo.buildingWidth },
+        .tgxHeight{ image.imageInfo.tileObjectImageInfo.tileOffset + 7 } // TODO: hardcoded for test image
+      };
+      Out("# General TGX Info #\n{}\n\n", tgxInfo);
+
+      TgxAnalysis tgxAnalysis{};
+      const TgxCoderResult tgxResult{ analyzeTgxToRaw(&tgxInfo, &instructions, &tgxAnalysis) };
+      if (tgxResult != TgxCoderResult::SUCCESS)
+      {
+        Out("{}\n", std::string_view{ getTgxResultDescription(tgxResult) });
+        return false;
+      }
+      Out("# Structure Meta Data #\n{}\n\n", tgxAnalysis);
+    }
+    return true;
   }
 
-  static bool validateGm1AnimationResource(const Gm1Resource& resource)
+  static bool validateGm1AnimationResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions)
   {
     throw std::exception("No support for animation resource validation yet.");
   }
@@ -116,10 +175,10 @@ namespace GM1File
       validationSuccessful = validateGm1TgxResource(resource, instructions);
       break;
     case Gm1Type::GM1_TYPE_TILES_OBJECT:
-      validationSuccessful = validateGm1TileObjectResource(resource);
+      validationSuccessful = validateGm1TileObjectResource(resource, instructions);
       break;
     case Gm1Type::GM1_TYPE_ANIMATIONS:
-      validationSuccessful = validateGm1AnimationResource(resource);
+      validationSuccessful = validateGm1AnimationResource(resource, instructions);
       break;
     case Gm1Type::GM1_TYPE_NO_COMPRESSION_1:
     case Gm1Type::GM1_TYPE_NO_COMPRESSION_2:
