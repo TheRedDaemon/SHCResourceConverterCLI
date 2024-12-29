@@ -58,7 +58,7 @@ namespace GM1File
     return true;
   }
 
-  static bool validateGm1TgxResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions)
+  static bool validateGm1TgxResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions, bool tgxAsText)
   {
     for (size_t i{ 0 }; i < resource.gm1Header->numberOfPicturesInFile; ++i)
     {
@@ -84,11 +84,25 @@ namespace GM1File
         return false;
       }
       Out("# Structure Meta Data #\n{}\n\n", tgxAnalysis);
+      if (!tgxAsText)
+      {
+        continue;
+      }
+      Log(LogLevel::INFO, "Printing TGX as text to stdout.");
+      const TgxCoderResult toTextResult{ decodeTgxToText(tgxInfo, instructions, STD_OUT) };
+      if (toTextResult != TgxCoderResult::SUCCESS)
+      {
+        Out("{}\n", std::string_view{ getTgxResultDescription(toTextResult) });
+        Log(LogLevel::ERROR, "Failed to print TGX as text.");
+        return false;
+      }
+      Log(LogLevel::INFO, "Completed to print TGX as text.");
+      Out("\n");
     }
     return true;
   }
 
-  static bool validateGm1TileObjectResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions)
+  static bool validateGm1TileObjectResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions, bool tgxAsText)
   {
     for (size_t i{ 0 }; i < resource.gm1Header->numberOfPicturesInFile; ++i)
     {
@@ -148,16 +162,30 @@ namespace GM1File
         return false;
       }
       Out("# Structure Meta Data #\n{}\n\n", tgxAnalysis);
+      if (!tgxAsText)
+      {
+        continue;
+      }
+      Log(LogLevel::INFO, "Printing TGX as text to stdout.");
+      const TgxCoderResult toTextResult{ decodeTgxToText(tgxInfo, instructions, STD_OUT) };
+      if (toTextResult != TgxCoderResult::SUCCESS)
+      {
+        Out("{}\n", std::string_view{ getTgxResultDescription(toTextResult) });
+        Log(LogLevel::ERROR, "Failed to print TGX as text.");
+        return false;
+      }
+      Log(LogLevel::INFO, "Completed to print TGX as text.");
+      Out("\n");
     }
     return true;
   }
 
-  static bool validateGm1AnimationResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions)
+  static bool validateGm1AnimationResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions, bool tgxAsText)
   {
     throw std::exception("No support for animation resource validation yet.");
   }
 
-  void validateGm1Resource(const Gm1Resource& resource, const TgxCoderInstruction& instructions)
+  void validateGm1Resource(const Gm1Resource& resource, const TgxCoderInstruction& instructions, bool tgxAsText)
   {
     Log(LogLevel::INFO, "Try validating given resource.");
 
@@ -172,13 +200,13 @@ namespace GM1File
     case Gm1Type::GM1_TYPE_INTERFACE:
     case Gm1Type::GM1_TYPE_TGX_CONST_SIZE:
     case Gm1Type::GM1_TYPE_FONT:
-      validationSuccessful = validateGm1TgxResource(resource, instructions);
+      validationSuccessful = validateGm1TgxResource(resource, instructions, tgxAsText);
       break;
     case Gm1Type::GM1_TYPE_TILES_OBJECT:
-      validationSuccessful = validateGm1TileObjectResource(resource, instructions);
+      validationSuccessful = validateGm1TileObjectResource(resource, instructions, tgxAsText);
       break;
     case Gm1Type::GM1_TYPE_ANIMATIONS:
-      validationSuccessful = validateGm1AnimationResource(resource, instructions);
+      validationSuccessful = validateGm1AnimationResource(resource, instructions, tgxAsText);
       break;
     case Gm1Type::GM1_TYPE_NO_COMPRESSION_1:
     case Gm1Type::GM1_TYPE_NO_COMPRESSION_2:

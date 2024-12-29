@@ -175,7 +175,8 @@ static int executeTest(const CLIArguments& cliArguments)
       {
         return 1;
       }
-      GM1File::validateGm1Resource(*gm1Resource, getCoderInstructionFromCliOptionsWithFallback(cliArguments));
+      GM1File::validateGm1Resource(*gm1Resource, getCoderInstructionFromCliOptionsWithFallback(cliArguments),
+        cliArguments.getOptionAs<boolFromStr>(OPTION::TEST_TGX_TO_TEXT).value_or(false));
     }
     break;
     default:

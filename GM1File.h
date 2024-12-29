@@ -203,7 +203,7 @@ namespace GM1File
   inline constexpr std::uintmax_t MIN_FILE_SIZE{ sizeof(Gm1Header) }; // guess
   inline constexpr std::uintmax_t MAX_FILE_SIZE{ std::numeric_limits<uint32_t>::max() }; // setting limit
 
-  void validateGm1Resource(const Gm1Resource& resource, const TgxCoderInstruction& instructions);
+  void validateGm1Resource(const Gm1Resource& resource, const TgxCoderInstruction& instructions, bool tgxAsText);
 
   UniqueGm1ResourcePointer loadGm1Resource(const std::filesystem::path& file);
   void saveGm1Resource(const std::filesystem::path& file, const Gm1Resource& resource);
