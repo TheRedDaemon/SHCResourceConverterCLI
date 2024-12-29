@@ -118,6 +118,29 @@ struct std::formatter<Gm1ImageHeader> : public std::formatter<std::string>
 };
 
 template<>
+struct std::formatter<Gm1TileObjectImagePosition> : public std::formatter<std::string>
+{
+  template<typename FormatContext>
+  auto format(const Gm1TileObjectImagePosition& args, FormatContext& ctx) const
+  {
+    switch (args)
+    {
+    case Gm1TileObjectImagePosition::NONE:
+      return format_to(ctx.out(), "NONE");
+    case Gm1TileObjectImagePosition::TOP:
+      return format_to(ctx.out(), "TOP");
+    case Gm1TileObjectImagePosition::UPPER_LEFT:
+      return format_to(ctx.out(), "UPPER_LEFT");
+    case Gm1TileObjectImagePosition::UPPER_RIGHT:
+      return format_to(ctx.out(), "UPPER_RIGHT");
+
+    default:
+      return format_to(ctx.out(), "UNKNOWN");
+    }
+  }
+};
+
+template<>
 struct std::formatter<Gm1TileObjectImageInfo> : public std::formatter<std::string>
 {
   template<typename FormatContext>
@@ -127,16 +150,16 @@ struct std::formatter<Gm1TileObjectImageInfo> : public std::formatter<std::strin
       "Image Part Index: {}\n"
       "Number of Image Parts: {}\n"
       "Tile Offset: {}\n"
-      "Image Direction: {}\n"
-      "Horizontal Offset of Image: {}\n"
-      "Building Width: {}\n"
+      "Image Position: {}\n"
+      "Image Offset X: {}\n"
+      "Image Width: {}\n"
       "Animated Color: {}",
       args.imagePart,
       args.subParts,
       args.tileOffset,
-      args.direction,
-      args.horizontalOffsetOfImage,
-      args.buildingWidth,
+      args.imagePosition,
+      args.imageOffsetX,
+      args.imageWidth,
       args.animatedColor
     );
   }
@@ -202,6 +225,9 @@ namespace GM1File
   inline constexpr std::string_view FILE_EXTENSION{ ".gm1" };
   inline constexpr std::uintmax_t MIN_FILE_SIZE{ sizeof(Gm1Header) }; // guess
   inline constexpr std::uintmax_t MAX_FILE_SIZE{ std::numeric_limits<uint32_t>::max() }; // setting limit
+
+  // basically the hight the image is "sunk" into the tile, and it seems to be a constant in the game
+  inline constexpr int TILE_IMAGE_HEIGHT_OFFSET{ 7 };
 
   void validateGm1Resource(const Gm1Resource& resource, const TgxCoderInstruction& instructions, bool tgxAsText);
 

@@ -67,14 +67,22 @@ struct alignas(int32_t) Gm1Header
   uint16_t colorPalette[10][256];
 };
 
+enum class Gm1TileObjectImagePosition : int8_t
+{
+  NONE = 0,
+  TOP = 1,
+  UPPER_LEFT = 2,
+  UPPER_RIGHT = 3,
+};
+
 struct alignas(int32_t) Gm1TileObjectImageInfo
 {
   uint8_t imagePart;
   uint8_t subParts;
   uint16_t tileOffset;
-  uint8_t direction;
-  uint8_t horizontalOffsetOfImage;
-  uint8_t buildingWidth;
+  Gm1TileObjectImagePosition imagePosition;
+  uint8_t imageOffsetX;
+  uint8_t imageWidth;
   uint8_t animatedColor; // if alpha 1?
 };
 
