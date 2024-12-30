@@ -13,8 +13,13 @@
 // TODO: indexed color currently equals the animation gm1s, and they have another difference outside only using one byte:
 // newlines finish early, which might effect the encoder the most, but the padding still is required
 
+// TODO: approach needs to change for decoding: the canvas needs to be initialized with the transparency color and the decoding just skips them
+// TODO: the handling of tile object encoding needs an extra step: the tile needs to ignore non-valid tiles, the image needs an extra step to cut
+// out the edges of the tile
 
 static constexpr int MAX_PIXEL_PER_MARKER{ 32 };
+
+static constexpr uint16_t FILLED_INDEXED_COLOR_ALPHA{ 0xff00 };
 
 
 // "instruction" currently unused
@@ -135,6 +140,7 @@ TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* r
   {
     return result;
   }
+  const bool indexedColor{ tgxData->colorType == TgxColorType::INDEXED };
   // removed safety here, since scan happens before, target needs to be big enough, though
 
   const int lineJump{ rawData->rawWidth - tgxData->tgxWidth };
@@ -185,16 +191,37 @@ TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* r
     switch (marker)
     {
     case TgxStreamMarker::TGX_MARKER_STREAM_OF_PIXELS:
-      memcpy(rawData->data + targetIndex, tgxData->data + sourceIndex, pixelNumber * 2);
-      sourceIndex += pixelNumber * 2;
-      targetIndex += pixelNumber;
+      if (indexedColor)
+      {
+        for (const int indexEnd{ targetIndex + pixelNumber }; targetIndex < indexEnd;)
+        {
+          rawData->data[targetIndex++] = FILLED_INDEXED_COLOR_ALPHA + tgxData->data[sourceIndex++];
+        }
+      }
+      else
+      {
+        memcpy(rawData->data + targetIndex, tgxData->data + sourceIndex, pixelNumber * 2);
+        sourceIndex += pixelNumber * 2;
+        targetIndex += pixelNumber;
+      }
       break;
     case TgxStreamMarker::TGX_MARKER_REPEATING_PIXELS:
-      for (const int indexEnd{ targetIndex + pixelNumber }; targetIndex < indexEnd; ++targetIndex)
+      if (indexedColor)
       {
-        rawData->data[targetIndex] = *(uint16_t*) (tgxData->data + sourceIndex);
+        for (const int indexEnd{ targetIndex + pixelNumber }; targetIndex < indexEnd;)
+        {
+          rawData->data[targetIndex++] = FILLED_INDEXED_COLOR_ALPHA + tgxData->data[sourceIndex];
+        }
+        ++sourceIndex;
       }
-      sourceIndex += 2;
+      else
+      {
+        for (const int indexEnd{ targetIndex + pixelNumber }; targetIndex < indexEnd; ++targetIndex)
+        {
+          rawData->data[targetIndex] = *(uint16_t*) (tgxData->data + sourceIndex);
+        }
+        sourceIndex += 2;
+      }
       break;
     case TgxStreamMarker::TGX_MARKER_TRANSPARENT_PIXELS:
       for (const int indexEnd{ targetIndex + pixelNumber }; targetIndex < indexEnd; ++targetIndex)
@@ -221,6 +248,8 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
   {
     return TgxCoderResult::RAW_WIDTH_TOO_SMALL;
   }
+  // indexed can work with the alpha form like normal, it just needs to cut out the higher order byte
+  const bool indexedColor{ tgxData->colorType == TgxColorType::INDEXED };
 
   // TODO: test and clean up
 
@@ -231,32 +260,31 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
   {
     for (int xIndex{ 0 }; xIndex < tgxData->tgxWidth;)
     {
-      for (uint8_t count{ 0 };;) // consume all transparency
+      int transparentPixelCount{ 0 };
+      while (xIndex < tgxData->tgxWidth && rawData->data[sourceIndex] == instruction->transparentPixelRawColor) // consume all transparency
       {
-        const bool endLoop{ !(xIndex < tgxData->tgxWidth && rawData->data[sourceIndex] == instruction->transparentPixelRawColor) };
-        if (endLoop || count >= MAX_PIXEL_PER_MARKER)
-        {
-          if (count > 0)
-          {
-            ++resultSize;
-            if (tgxData->data)
-            {
-              if (resultSize > tgxData->dataSize)
-              {
-                return TgxCoderResult::INVALID_TGX_DATA_SIZE;
-              }
-              tgxData->data[targetIndex++] = TgxStreamMarker::TGX_MARKER_TRANSPARENT_PIXELS | (count - 1);
-            };
-            count = 0;
-          }
-          if (endLoop)
-          {
-            break;
-          }
-        }
-        ++count;
+        ++transparentPixelCount;
         ++xIndex;
         ++sourceIndex;
+      }
+
+      if (!indexedColor || xIndex < tgxData->tgxWidth) // if indexed and end of the line, short circuit to newline
+      {
+        while (transparentPixelCount > 0)
+        {
+          const int pixelThisBatch{ transparentPixelCount > MAX_PIXEL_PER_MARKER ? MAX_PIXEL_PER_MARKER : transparentPixelCount };
+          transparentPixelCount -= pixelThisBatch;
+
+          ++resultSize;
+          if (tgxData->data)
+          {
+            if (resultSize > tgxData->dataSize)
+            {
+              return TgxCoderResult::INVALID_TGX_DATA_SIZE;
+            }
+            tgxData->data[targetIndex++] = TgxStreamMarker::TGX_MARKER_TRANSPARENT_PIXELS | (transparentPixelCount - 1);
+          };
+        }
       }
 
       // TODO?: is there a special handling for the magenta transparent-marker color pixel, since the RGB transform ignores it, but only for stream pixels?
@@ -346,7 +374,7 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
 
       if (count > 0)
       {
-        const int pixelSize{ count * 2 };
+        const int pixelSize{ indexedColor ? count : count * 2 };
         resultSize += 1 + pixelSize;
         if (tgxData->data)
         {
@@ -355,22 +383,24 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
             return TgxCoderResult::INVALID_TGX_DATA_SIZE;
           }
           tgxData->data[targetIndex++] = TgxStreamMarker::TGX_MARKER_STREAM_OF_PIXELS | (count - 1);
-          memcpy(tgxData->data + targetIndex, pixelBuffer, pixelSize);
-          targetIndex += pixelSize;
+          if (indexedColor)
+          {
+            for (int i{ 0 }; i < count; ++i)
+            {
+              tgxData->data[targetIndex++] = static_cast<uint8_t>(~FILLED_INDEXED_COLOR_ALPHA & pixelBuffer[i]);
+            }
+          }
+          else
+          {
+            memcpy(tgxData->data + targetIndex, pixelBuffer, pixelSize);
+            targetIndex += pixelSize;
+          }
         }
       }
 
       while (repeatingPixelCount > 0)
       {
-        int pixelThisBatch;
-        if (repeatingPixelCount > MAX_PIXEL_PER_MARKER)
-        {
-          pixelThisBatch = MAX_PIXEL_PER_MARKER;
-        }
-        else
-        {
-          pixelThisBatch = repeatingPixelCount;
-        }
+        const int pixelThisBatch{ repeatingPixelCount > MAX_PIXEL_PER_MARKER ? MAX_PIXEL_PER_MARKER : repeatingPixelCount };
         repeatingPixelCount -= pixelThisBatch;
 
         // adjust indexes
@@ -378,7 +408,7 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
         sourceIndex += pixelThisBatch;
 
         // add to data
-        resultSize += 3;
+        resultSize += indexedColor ? 2 : 3;
         if (tgxData->data)
         {
           if (resultSize > tgxData->dataSize)
@@ -386,8 +416,15 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
             return TgxCoderResult::INVALID_TGX_DATA_SIZE;
           }
           tgxData->data[targetIndex++] = TgxStreamMarker::TGX_MARKER_REPEATING_PIXELS | (pixelThisBatch - 1);
-          *((uint16_t*) (tgxData->data + targetIndex)) = repeatingPixel;
-          targetIndex += 2;
+          if (indexedColor)
+          {
+            tgxData->data[targetIndex++] = static_cast<uint8_t>(~FILLED_INDEXED_COLOR_ALPHA & repeatingPixel);
+          }
+          else
+          {
+            *((uint16_t*) (tgxData->data + targetIndex)) = repeatingPixel;
+            targetIndex += 2;
+          }
         }
       }
     }

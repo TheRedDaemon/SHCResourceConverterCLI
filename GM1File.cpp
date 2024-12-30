@@ -11,9 +11,6 @@
 // placed on the canvas. Should it turn out that this is the case, either the coder needs to be different, or
 // all decoding actually needs to work this way, by initializing the canvas with the correct transparency (without the decoder)
 
-// TODO: it could be, that the only special image data is carried by the tile objects, while all other types share the same image header
-// this needs analysis
-
 // TODO: the meaning of the relative data index field is still strange, for example, super chicken.gm1 would have the number 256
 // in this index (far to big?), but no flag; some interfaces have -1 in there and a fitting flag for the case that in game flag
 // would be true, despite them not having a fitting earlier part; this needs more checks
@@ -76,8 +73,6 @@ namespace GM1File
       const Gm1Image& image{ resource.imageHeaders[i] };
       const uint32_t offset{ resource.imageOffsets[i] };
       const uint32_t size{ resource.imageSizes[i] };
-
-      // TODO: do the image dimensions need to be identical to the size in the gm1 header for animations? (Check)
 
       Out("### Image {} ###\n{}\n\n{}\n\n", i, image.imageHeader, image.imageInfo.generalImageInfo);
 
