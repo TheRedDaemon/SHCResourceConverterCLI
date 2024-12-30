@@ -10,6 +10,10 @@
 // TODO: apperantly, GM files indicate with a flag if alpha is 0 or 1: https://github.com/PodeCaradox/Gm1KonverterCrossPlatform/blob/5b1ade8c38a3ed5a583dcb7ff3d843a12d14b87f/Gm1KonverterCrossPlatform/HelperClasses/Utility.cs#L170
 // this also needs support, also the code might imply that certain format versions short circuit the newline
 
+// TODO: indexed color currently equals the animation gm1s, and they have another difference outside only using one byte:
+// newlines finish early, which might effect the encoder the most, but the padding still is required
+
+
 static constexpr int MAX_PIXEL_PER_MARKER{ 32 };
 
 
@@ -20,6 +24,7 @@ TgxCoderResult analyzeTgxToRaw(const TgxCoderTgxInfo* tgxData, const TgxCoderIns
   {
     return TgxCoderResult::MISSING_REQUIRED_STRUCTS;
   }
+  const int pixelSize{ tgxData->colorType == TgxColorType::INDEXED ? 1 : 2 };
 
   if (tgxAnalysis) memset(tgxAnalysis, 0, sizeof(TgxAnalysis));
 
@@ -75,7 +80,7 @@ TgxCoderResult analyzeTgxToRaw(const TgxCoderTgxInfo* tgxData, const TgxCoderIns
         ++tgxAnalysis->markerCountPixelStream;
         tgxAnalysis->pixelStreamPixelCount += pixelNumber;
       }
-      sourceIndex += pixelNumber * 2;
+      sourceIndex += pixelNumber * pixelSize;
       break;
     case TgxStreamMarker::TGX_MARKER_REPEATING_PIXELS: // there might be a special case for magenta pixels
       if (tgxAnalysis)
@@ -83,7 +88,7 @@ TgxCoderResult analyzeTgxToRaw(const TgxCoderTgxInfo* tgxData, const TgxCoderIns
         ++tgxAnalysis->markerCountRepeatingPixels;
         tgxAnalysis->repeatingPixelsPixelCount += pixelNumber;
       }
-      sourceIndex += 2;
+      sourceIndex += pixelSize;
       break;
     case TgxStreamMarker::TGX_MARKER_TRANSPARENT_PIXELS:
       if (tgxAnalysis)
@@ -456,6 +461,7 @@ TgxCoderResult decodeTgxToText(const TgxCoderTgxInfo& tgxData, const TgxCoderIns
   {
     return result;
   }
+  const bool indexedColor{ tgxData.colorType == TgxColorType::INDEXED };
 
   uint32_t sourceIndex{ 0 };
   while (sourceIndex < tgxData.dataSize)
@@ -468,16 +474,35 @@ TgxCoderResult decodeTgxToText(const TgxCoderTgxInfo& tgxData, const TgxCoderIns
     {
     case TgxStreamMarker::TGX_MARKER_STREAM_OF_PIXELS:
       std::print(outStream, "STREAM_PIXEL {}", pixelNumber);
-      for (int i{ 0 }; i < pixelNumber * 2; i += 2)
+      if (indexedColor)
       {
-        std::print(outStream, " {:#06x}", *(uint16_t*) (tgxData.data + sourceIndex));
-        sourceIndex += 2;
+        for (int i{ 0 }; i < pixelNumber; ++i)
+        {
+          std::print(outStream, " {:#04x}", *(uint8_t*) (tgxData.data + sourceIndex));
+          ++sourceIndex;
+        }
+      }
+      else
+      {
+        for (int i{ 0 }; i < pixelNumber * 2; i += 2)
+        {
+          std::print(outStream, " {:#06x}", *(uint16_t*) (tgxData.data + sourceIndex));
+          sourceIndex += 2;
+        }
       }
       std::print(outStream, "\n");
       break;
     case TgxStreamMarker::TGX_MARKER_REPEATING_PIXELS:
-      std::print(outStream, "REPEAT_PIXEL {} {:#06x}\n", pixelNumber, *(uint16_t*) (tgxData.data + sourceIndex));
-      sourceIndex += 2;
+      if (indexedColor)
+      {
+        std::print(outStream, "REPEAT_PIXEL {} {:#04x}\n", pixelNumber, *(uint8_t*) (tgxData.data + sourceIndex));
+        ++sourceIndex;
+      }
+      else
+      {
+        std::print(outStream, "REPEAT_PIXEL {} {:#06x}\n", pixelNumber, *(uint16_t*) (tgxData.data + sourceIndex));
+        sourceIndex += 2;
+      }
       break;
     case TgxStreamMarker::TGX_MARKER_TRANSPARENT_PIXELS:
       std::print(outStream, "TRANSPARENT_PIXEL {}\n", pixelNumber);

@@ -13,6 +13,7 @@ namespace TGXFile
     Log(LogLevel::INFO, "Try validating given resource.");
     
     const TgxCoderTgxInfo tgxInfo{
+      .colorType{ TgxColorType::DEFAULT },
       .data{ resource.imageData },
       .dataSize{ resource.dataSize },
       .tgxWidth{ resource.header->width },
@@ -277,6 +278,7 @@ namespace TGXFile
       .rawY{ 0 }
     };
     TgxCoderTgxInfo tgxInfo{
+      .colorType{ TgxColorType::DEFAULT },
       .data{ nullptr },
       .dataSize{ 0 },
       .tgxWidth{ width },

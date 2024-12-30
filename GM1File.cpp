@@ -77,9 +77,12 @@ namespace GM1File
       const uint32_t offset{ resource.imageOffsets[i] };
       const uint32_t size{ resource.imageSizes[i] };
 
+      // TODO: do the image dimensions need to be identical to the size in the gm1 header for animations? (Check)
+
       Out("### Image {} ###\n{}\n\n{}\n\n", i, image.imageHeader, image.imageInfo.generalImageInfo);
 
       const TgxCoderTgxInfo tgxInfo{
+        .colorType{ resource.gm1Header->gm1Type == Gm1Type::GM1_TYPE_ANIMATIONS ? TgxColorType::INDEXED : TgxColorType::DEFAULT },
         .data{ resource.imageData + offset },
         .dataSize{ size },
         .tgxWidth{ image.imageHeader.width },
@@ -177,11 +180,6 @@ namespace GM1File
     return true;
   }
 
-  static bool validateGm1AnimationResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions, bool tgxAsText)
-  {
-    throw std::exception("No support for animation resource validation yet.");
-  }
-
   void validateGm1Resource(const Gm1Resource& resource, const TgxCoderInstruction& instructions, bool tgxAsText)
   {
     Log(LogLevel::INFO, "Try validating given resource.");
@@ -197,13 +195,11 @@ namespace GM1File
     case Gm1Type::GM1_TYPE_INTERFACE:
     case Gm1Type::GM1_TYPE_TGX_CONST_SIZE:
     case Gm1Type::GM1_TYPE_FONT:
+    case Gm1Type::GM1_TYPE_ANIMATIONS:
       validationSuccessful = validateGm1TgxResource(resource, instructions, tgxAsText);
       break;
     case Gm1Type::GM1_TYPE_TILES_OBJECT:
       validationSuccessful = validateGm1TileObjectResource(resource, instructions, tgxAsText);
-      break;
-    case Gm1Type::GM1_TYPE_ANIMATIONS:
-      validationSuccessful = validateGm1AnimationResource(resource, instructions, tgxAsText);
       break;
     case Gm1Type::GM1_TYPE_NO_COMPRESSION_1:
     case Gm1Type::GM1_TYPE_NO_COMPRESSION_2:

@@ -16,6 +16,12 @@ enum class TgxCoderResult : int32_t
   RAW_WIDTH_TOO_SMALL,
 };
 
+enum class TgxColorType : int32_t
+{
+  DEFAULT,
+  INDEXED, // uses a color table to actually store the colors, leading to using 8 bit per actual pixel
+};
+
 struct TgxCoderRawInfo
 {
   uint16_t* data; // it is assumed the buffer is big enough to contain the data indicated by this and the tgx struct
@@ -27,6 +33,7 @@ struct TgxCoderRawInfo
 
 struct TgxCoderTgxInfo
 {
+  TgxColorType colorType;
   uint8_t* data;
   uint32_t dataSize;
   int32_t tgxWidth;
@@ -61,7 +68,27 @@ struct std::formatter<TgxCoderRawInfo> : public std::formatter<std::string>
   template<typename FormatContext>
   auto format(const TgxCoderRawInfo& args, FormatContext& ctx) const
   {
-    return format_to(ctx.out(), "Raw Width: {}\nRaw Height: {}\nRaw X: {}\nRaw Y: {}", args.rawWidth, args.rawHeight, args.rawX, args.rawY);
+    return format_to(ctx.out(), "Raw Width: {}\nRaw Height: {}\nRaw X: {}\nRaw Y: {}",
+      args.rawWidth, args.rawHeight, args.rawX, args.rawY);
+  }
+};
+
+template<>
+struct std::formatter<TgxColorType> : public std::formatter<std::string>
+{
+  template<typename FormatContext>
+  auto format(const TgxColorType& args, FormatContext& ctx) const
+  {
+    switch (args)
+    {
+    case TgxColorType::DEFAULT:
+      return format_to(ctx.out(), "DEFAULT");
+    case TgxColorType::INDEXED:
+      return format_to(ctx.out(), "INDEXED");
+
+    default:
+      return format_to(ctx.out(), "UNKNOWN");
+    }
   }
 };
 
@@ -71,7 +98,8 @@ struct std::formatter<TgxCoderTgxInfo> : public std::formatter<std::string>
   template<typename FormatContext>
   auto format(const TgxCoderTgxInfo& args, FormatContext& ctx) const
   {
-    return format_to(ctx.out(), "Data Size: {}\nTGX Width: {}\nTGX Height: {}", args.dataSize, args.tgxWidth, args.tgxHeight);
+    return format_to(ctx.out(), "Color Type: {}\nData Size: {}\nTGX Width: {}\nTGX Height: {}",
+      args.colorType, args.dataSize, args.tgxWidth, args.tgxHeight);
   }
 };
 
