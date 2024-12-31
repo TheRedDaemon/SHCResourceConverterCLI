@@ -236,7 +236,7 @@ static int executeExtract(const CLIArguments& cliArguments)
       {
         return 1;
       }
-      GM1File::saveGm1ResourceAsRaw(target, *gm1Resource);
+      GM1File::saveGm1ResourceAsRaw(target, *gm1Resource, getCoderInstructionFromCliOptionsWithFallback(cliArguments));
     }
     break;
     default:

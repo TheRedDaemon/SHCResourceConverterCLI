@@ -314,5 +314,5 @@ namespace GM1File
   void saveGm1Resource(const std::filesystem::path& file, const Gm1Resource& resource);
 
   UniqueGm1ResourcePointer loadGm1ResourceFromRaw(const std::filesystem::path& folder);
-  void saveGm1ResourceAsRaw(const std::filesystem::path& folder, const Gm1Resource& resource);
+  void saveGm1ResourceAsRaw(const std::filesystem::path& folder, const Gm1Resource& resource, const TgxCoderInstruction& instructions);
 }

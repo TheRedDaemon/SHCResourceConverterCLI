@@ -32,6 +32,14 @@
 
 namespace GM1File
 {
+  static std::unique_ptr<uint16_t[]> createMemoryForRaw(const int32_t width, const int32_t height, const uint16_t transparentPixel)
+  {
+    const size_t rawDataPixelSize{ static_cast<size_t>(width) * height };
+    auto rawData{ std::make_unique_for_overwrite<uint16_t[]>(rawDataPixelSize) };
+    std::fill(rawData.get(), rawData.get() + rawDataPixelSize, transparentPixel);
+    return rawData;
+  }
+
   static bool validateGm1UncompressedResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions)
   {
     for (size_t i{ 0 }; i < resource.gm1Header->info.numberOfPicturesInFile; ++i)
@@ -151,6 +159,7 @@ namespace GM1File
       }
 
       const TgxCoderTgxInfo tgxInfo{
+        .colorType{ TgxColorType::DEFAULT },
         .data{ resource.imageData + offset + TILE_BYTE_SIZE },
         .dataSize{ size - TILE_BYTE_SIZE },
         .tgxWidth{ image.imageInfo.tileObjectImageInfo.imageWidth },
@@ -523,6 +532,115 @@ namespace GM1File
     throw std::exception{ "Not yet implemented." };
   }
 
+  static void decodeGm1UncompressedResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions,
+    const int rawWidth, const int rawHeight, uint16_t* outData)
+  {
+    for (size_t i{ 0 }; i < resource.gm1Header->info.numberOfPicturesInFile; ++i)
+    {
+      const Gm1Image& image{ resource.imageHeaders[i] };
+      const uint32_t offset{ resource.imageOffsets[i] };
+      const uint32_t size{ resource.imageSizes[i] };
+
+      const Gm1CoderDataInfo dataInfo{
+        .data{ resource.imageData + offset },
+        .dataSize{ size },
+        .dataWidth{ image.imageHeader.width },
+        .dataHeight{ image.imageHeader.height },
+      };
+      Gm1CoderRawInfo rawInfo{
+        .raw{ outData },
+        .rawWidth{ rawWidth },
+        .rawHeight{ rawHeight },
+        .rawX{ image.imageHeader.offsetX },
+        .rawY{ image.imageHeader.offsetY },
+      };
+      const Gm1CoderResult result{ copyUncompressedToRaw(&dataInfo, &rawInfo, instructions.transparentPixelRawColor) };
+      if (result != Gm1CoderResult::SUCCESS)
+      {
+        throw std::exception{ getGm1ResultDescription(result) };
+      }
+    }
+  }
+
+  static void decodeGm1TgxResource(const Gm1Resource& resource, const int rawWidth, const int rawHeight, uint16_t* outData)
+  {
+    for (size_t i{ 0 }; i < resource.gm1Header->info.numberOfPicturesInFile; ++i)
+    {
+      const Gm1Image& image{ resource.imageHeaders[i] };
+      const uint32_t offset{ resource.imageOffsets[i] };
+      const uint32_t size{ resource.imageSizes[i] };
+
+      const TgxCoderTgxInfo tgxInfo{
+        .colorType{ resource.gm1Header->info.gm1Type == Gm1Type::GM1_TYPE_ANIMATIONS ? TgxColorType::INDEXED : TgxColorType::DEFAULT },
+        .data{ resource.imageData + offset },
+        .dataSize{ size },
+        .tgxWidth{ image.imageHeader.width },
+        .tgxHeight{ image.imageHeader.height }
+      };
+      TgxCoderRawInfo rawInfo{
+        .data{ outData },
+        .rawWidth{ rawWidth },
+        .rawHeight{ rawHeight },
+        .rawX{ image.imageHeader.offsetX },
+        .rawY{ image.imageHeader.offsetY },
+      };
+      const TgxCoderResult result{ decodeTgxToRaw(&tgxInfo, &rawInfo, nullptr) };
+      if (result != TgxCoderResult::SUCCESS)
+      {
+        throw std::exception{ getTgxResultDescription(result) };
+      }
+    }
+  }
+
+  static void decodeGm1TileObjectResource(const Gm1Resource& resource, const int rawWidth, const int rawHeight, uint16_t* outData)
+  {
+    for (size_t i{ 0 }; i < resource.gm1Header->info.numberOfPicturesInFile; ++i)
+    {
+      const Gm1Image& image{ resource.imageHeaders[i] };
+      const uint32_t offset{ resource.imageOffsets[i] };
+      const uint32_t size{ resource.imageSizes[i] };
+
+      // the size contains the tile, so this should work
+      Gm1CoderRawInfo rawTileInfo{
+        .raw{ outData },
+        .rawWidth{ TILE_WIDTH },
+        .rawHeight{ TILE_HEIGHT },
+        .rawX{ image.imageInfo.tileObjectImageInfo.imageOffsetX < 0 ? image.imageHeader.offsetX - image.imageInfo.tileObjectImageInfo.imageOffsetX : image.imageHeader.offsetX },
+        .rawY{ image.imageHeader.offsetY + image.imageHeader.height - TILE_HEIGHT },
+      };
+      const Gm1CoderResult tileResult{ decodeTileToRaw(reinterpret_cast<uint16_t*>(resource.imageData + offset), &rawTileInfo) };
+      if (tileResult != Gm1CoderResult::SUCCESS)
+      {
+        throw std::exception{ getGm1ResultDescription(tileResult) };
+      }
+
+      if (image.imageInfo.tileObjectImageInfo.imagePosition == Gm1TileObjectImagePosition::NONE)
+      {
+        continue;
+      }
+
+      const TgxCoderTgxInfo tgxInfo{
+        .colorType{ TgxColorType::DEFAULT },
+        .data{ resource.imageData + offset + TILE_BYTE_SIZE },
+        .dataSize{ size - TILE_BYTE_SIZE },
+        .tgxWidth{ image.imageInfo.tileObjectImageInfo.imageWidth },
+        .tgxHeight{ image.imageInfo.tileObjectImageInfo.tileOffset + TILE_IMAGE_HEIGHT_OFFSET }
+      };
+      TgxCoderRawInfo rawImageInfo{
+        .data{ outData },
+        .rawWidth{ rawWidth },
+        .rawHeight{ rawHeight },
+        .rawX{ image.imageInfo.tileObjectImageInfo.imageOffsetX > 0 ? image.imageHeader.offsetX + image.imageInfo.tileObjectImageInfo.imageOffsetX : image.imageHeader.offsetX },
+        .rawY{ image.imageHeader.offsetY },
+      };
+      const TgxCoderResult result{ decodeTgxToRaw(&tgxInfo, &rawImageInfo, nullptr) };
+      if (result != TgxCoderResult::SUCCESS)
+      {
+        throw std::exception{ getTgxResultDescription(result) };
+      }
+    }
+  }
+
   static void writeGm1HeaderInfoToResourceMetaObject(const Gm1HeaderInfo& headerInfo, ResourceMetaFormat::ResourceMetaFileWriter& metaWriter)
   {
     Log(LogLevel::DEBUG, "Write Gm1Header info object to meta file.");
@@ -603,8 +721,142 @@ namespace GM1File
       .endObject();
   }
 
-  void saveGm1ResourceAsRaw(const std::filesystem::path& folder, const Gm1Resource& resource)
+  // currently loops three times through images, but this is ok for now
+  void saveGm1ResourceAsRaw(const std::filesystem::path& folder, const Gm1Resource& resource, const TgxCoderInstruction& instructions)
   {
-    throw std::exception{ "Not yet implemented." };
+    Log(LogLevel::INFO, "Try saving GM1 resource as raw data.");
+
+    std::filesystem::create_directories(folder);
+    Log(LogLevel::DEBUG, "Created directory.");
+
+    // determine needed canvas size
+    int canvasWidth{ 0 };
+    int canvasHeight{ 0 };
+    for (size_t i{ 0 }; i < resource.gm1Header->info.numberOfPicturesInFile; ++i)
+    {
+      const Gm1ImageHeader& imageHeader{ resource.imageHeaders[i].imageHeader };
+      const int possibleWidth{ imageHeader.offsetX + imageHeader.width };
+      const int possibleHeight{ imageHeader.offsetY + imageHeader.height };
+      canvasWidth = std::max(canvasWidth, possibleWidth);
+      canvasHeight = std::max(canvasHeight, possibleHeight);
+    }
+    auto rawData{ createMemoryForRaw(canvasWidth, canvasHeight, instructions.transparentPixelRawColor) };
+
+    switch (resource.gm1Header->info.gm1Type)
+    {
+    case Gm1Type::GM1_TYPE_INTERFACE:
+    case Gm1Type::GM1_TYPE_TGX_CONST_SIZE:
+    case Gm1Type::GM1_TYPE_FONT:
+    case Gm1Type::GM1_TYPE_ANIMATIONS:
+      decodeGm1TgxResource(resource, canvasWidth, canvasHeight, rawData.get());
+      break;
+    case Gm1Type::GM1_TYPE_TILES_OBJECT:
+      decodeGm1TileObjectResource(resource, canvasWidth, canvasHeight, rawData.get());
+      break;
+    case Gm1Type::GM1_TYPE_NO_COMPRESSION_1:
+    case Gm1Type::GM1_TYPE_NO_COMPRESSION_2:
+      decodeGm1UncompressedResource(resource, instructions, canvasWidth, canvasHeight, rawData.get());
+      break;
+
+    default:
+      throw std::exception{ "Resource has unknown type." };
+    }
+    Log(LogLevel::DEBUG, "Decoded GM1 to raw data.");
+
+    const std::string resourceName{ folder.filename().string() };
+    Log(LogLevel::DEBUG, "Using folder name '{}' as resource name.", resourceName);
+
+    std::filesystem::path relativeDataPath{ resourceName };
+    relativeDataPath.replace_extension(RAW_DATA_FILE_EXTENSION);
+
+    const size_t rawDataSize{ static_cast<size_t>(canvasWidth) * canvasHeight * sizeof(uint16_t) };
+
+    Log(LogLevel::DEBUG, "Creating resource meta file.");
+    {
+      std::filesystem::path file{ folder / resourceName };
+      file.replace_extension(ResourceMetaFormat::FILE::EXTENSION);
+
+      try
+      {
+        std::ofstream out;
+        out.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+        out.open(file, std::ios::out | std::ios::trunc); // text handling
+
+        auto metaWriter{ ResourceMetaFormat::ResourceMetaFileWriter::startFile(out, ResourceMetaFormat::VERSION::CURRENT) };
+        metaWriter.startHeader()
+          .endObject()
+
+          .startObject(Gm1ResourceMeta::RESOURCE_IDENTIFIER, Gm1ResourceMeta::CURRENT_VERSION)
+          .writeMapEntry(Gm1ResourceMeta::RAW_DATA_PATH_KEY, relativeDataPath.string())
+          .writeMapEntry(Gm1ResourceMeta::RAW_DATA_SIZE_KEY, std::to_string(rawDataSize))
+          .writeMapEntry(Gm1ResourceMeta::RAW_DATA_TRANSPARENT_PIXEL_KEY, std::format("{:#06x}", instructions.transparentPixelRawColor),
+            "Color used for transparent pixel during extract. Not automatically used during packing.")
+          .endObject();
+
+        writeGm1HeaderInfoToResourceMetaObject(resource.gm1Header->info, metaWriter);
+
+        for (size_t i{ 0 }; i < resource.gm1Header->info.numberOfPicturesInFile; ++i)
+        {
+          const Gm1Image& image{ resource.imageHeaders[i] };
+          const uint32_t offset{ resource.imageOffsets[i] };
+          const uint32_t size{ resource.imageSizes[i] };
+
+          writeGm1ImageHeaderToResourceMetaObject(offset, size, image.imageHeader, metaWriter);
+          if (resource.gm1Header->info.gm1Type == Gm1Type::GM1_TYPE_TILES_OBJECT)
+          {
+            writeGm1TileObjectImageInfoToResourceMetaObject(image.imageInfo.tileObjectImageInfo, metaWriter);
+          }
+          else
+          {
+            writeGm1GeneralImageInfoToResourceMetaObject(image.imageInfo.generalImageInfo, metaWriter);
+          }
+        }
+
+        metaWriter.endFile();
+      }
+      catch (...)
+      {
+        Log(LogLevel::ERROR, "Encountered error while writing GM1 resource meta file. File is likely corrupted.");
+        throw;
+      }
+    }
+    Log(LogLevel::DEBUG, "Created resource meta file.");
+
+    Log(LogLevel::DEBUG, "Creating resource data file.");
+    {
+      const std::filesystem::path file{ folder / relativeDataPath };
+      try
+      {
+        std::ofstream out;
+        out.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+        out.open(file, std::ios::out | std::ios::trunc | std::ios::binary);
+        out.write(reinterpret_cast<const char*>(rawData.get()), rawDataSize);
+      }
+      catch (...)
+      {
+        Log(LogLevel::ERROR, "Encountered error while writing GM1 resource data file. File is likely corrupted.");
+        throw;
+      }
+    }
+    Log(LogLevel::DEBUG, "Created resource data file.");
+
+    Log(LogLevel::DEBUG, "Creating palette data files.");
+    for (size_t i{ 0 }; i < PALETTE_COUNT; ++i)
+    {
+      std::filesystem::path file{ folder / std::to_string(i) };
+      file.replace_extension(PALETTE_FILE_EXTENSION);
+      try
+      {
+        savePaletteToFile(file, std::span{ resource.gm1Header->colorPalette[i] });
+      }
+      catch (...)
+      {
+        Log(LogLevel::ERROR, "Encountered error while writing GM1 palette data file. File is likely corrupted.");
+        throw;
+      }
+    }
+    Log(LogLevel::DEBUG, "Created palette data files.");
+
+    Log(LogLevel::INFO, "Saved GM1 resource as raw data.");
   }
 }

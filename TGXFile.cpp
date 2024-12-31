@@ -337,6 +337,7 @@ namespace TGXFile
     auto rawData{ createMemoryForRaw(resource.header->width, resource.header->height, instructions.transparentPixelRawColor) };
 
     const TgxCoderTgxInfo tgxInfo{
+      .colorType{ TgxColorType::DEFAULT },
       .data{ resource.imageData },
       .dataSize{ resource.dataSize },
       .tgxWidth{ resource.header->width },
