@@ -66,7 +66,7 @@ namespace GM1File
     return true;
   }
 
-  static bool validateGm1TgxResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions, bool tgxAsText)
+  static bool validateGm1TgxResource(const Gm1Resource& resource, bool tgxAsText)
   {
     for (size_t i{ 0 }; i < resource.gm1Header->numberOfPicturesInFile; ++i)
     {
@@ -86,7 +86,7 @@ namespace GM1File
       Out("# General TGX Info #\n{}\n\n", tgxInfo);
 
       TgxAnalysis tgxAnalysis{};
-      const TgxCoderResult result{ analyzeTgxToRaw(&tgxInfo, &instructions, &tgxAnalysis) };
+      const TgxCoderResult result{ analyzeTgxToRaw(&tgxInfo, &tgxAnalysis) };
       if (result != TgxCoderResult::SUCCESS)
       {
         Out("{}\n", std::string_view{ getTgxResultDescription(result) });
@@ -98,7 +98,7 @@ namespace GM1File
         continue;
       }
       Log(LogLevel::INFO, "Printing TGX as text to stdout.");
-      const TgxCoderResult toTextResult{ decodeTgxToText(tgxInfo, instructions, STD_OUT) };
+      const TgxCoderResult toTextResult{ decodeTgxToText(tgxInfo, STD_OUT) };
       if (toTextResult != TgxCoderResult::SUCCESS)
       {
         Out("{}\n", std::string_view{ getTgxResultDescription(toTextResult) });
@@ -111,7 +111,7 @@ namespace GM1File
     return true;
   }
 
-  static bool validateGm1TileObjectResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions, bool tgxAsText)
+  static bool validateGm1TileObjectResource(const Gm1Resource& resource, bool tgxAsText)
   {
     for (size_t i{ 0 }; i < resource.gm1Header->numberOfPicturesInFile; ++i)
     {
@@ -129,7 +129,7 @@ namespace GM1File
         .rawX{ 0 },
         .rawY{ 0 },
       };
-      const Gm1CoderResult tileResult{ decodeTileToRaw(reinterpret_cast<uint16_t*>(resource.imageData + offset), &rawInfo, instructions.transparentPixelRawColor) };
+      const Gm1CoderResult tileResult{ decodeTileToRaw(reinterpret_cast<uint16_t*>(resource.imageData + offset), &rawInfo) };
       if (tileResult != Gm1CoderResult::CHECKED_PARAMETER)
       {
         Out("{}\n", std::string_view{ getGm1ResultDescription(tileResult) });
@@ -150,7 +150,7 @@ namespace GM1File
       Out("# General TGX Info #\n{}\n\n", tgxInfo);
 
       TgxAnalysis tgxAnalysis{};
-      const TgxCoderResult tgxResult{ analyzeTgxToRaw(&tgxInfo, &instructions, &tgxAnalysis) };
+      const TgxCoderResult tgxResult{ analyzeTgxToRaw(&tgxInfo, &tgxAnalysis) };
       if (tgxResult != TgxCoderResult::SUCCESS)
       {
         Out("{}\n", std::string_view{ getTgxResultDescription(tgxResult) });
@@ -162,7 +162,7 @@ namespace GM1File
         continue;
       }
       Log(LogLevel::INFO, "Printing TGX as text to stdout.");
-      const TgxCoderResult toTextResult{ decodeTgxToText(tgxInfo, instructions, STD_OUT) };
+      const TgxCoderResult toTextResult{ decodeTgxToText(tgxInfo, STD_OUT) };
       if (toTextResult != TgxCoderResult::SUCCESS)
       {
         Out("{}\n", std::string_view{ getTgxResultDescription(toTextResult) });
@@ -191,10 +191,10 @@ namespace GM1File
     case Gm1Type::GM1_TYPE_TGX_CONST_SIZE:
     case Gm1Type::GM1_TYPE_FONT:
     case Gm1Type::GM1_TYPE_ANIMATIONS:
-      validationSuccessful = validateGm1TgxResource(resource, instructions, tgxAsText);
+      validationSuccessful = validateGm1TgxResource(resource, tgxAsText);
       break;
     case Gm1Type::GM1_TYPE_TILES_OBJECT:
-      validationSuccessful = validateGm1TileObjectResource(resource, instructions, tgxAsText);
+      validationSuccessful = validateGm1TileObjectResource(resource, tgxAsText);
       break;
     case Gm1Type::GM1_TYPE_NO_COMPRESSION_1:
     case Gm1Type::GM1_TYPE_NO_COMPRESSION_2:

@@ -163,8 +163,8 @@ inline constexpr TgxCoderInstruction TGX_FILE_DEFAULT_INSTRUCTION{
   .paddingAlignment{ TGX_FILE_PADDING_ALIGNMENT },
 };
 
-extern "C" __declspec(dllexport) TgxCoderResult analyzeTgxToRaw(const TgxCoderTgxInfo* tgxData, const TgxCoderInstruction* instruction, TgxAnalysis* tgxAnalysis);
-extern "C" __declspec(dllexport) TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* rawData, const TgxCoderInstruction* instruction, TgxAnalysis* tgxAnalysis);
+extern "C" __declspec(dllexport) TgxCoderResult analyzeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxAnalysis* tgxAnalysis);
+extern "C" __declspec(dllexport) TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* rawData, TgxAnalysis* tgxAnalysis);
 
 // fills the dataSize in TgxCoderTgxInfo if data ptr is nullptr and return different result, else it will fill the buffer, but stop if dataSize indicates that the buffer is too small
 // resulting in a broken result; if the buffer size indicated by dataSize is big enough, the dataSize will be set to the actual size
@@ -176,4 +176,4 @@ extern "C" __declspec(dllexport) const char* getTgxResultDescription(const TgxCo
 
 // analysis function that decodes the raw TGX data to a readable text stream
 // only intended for analysis
-TgxCoderResult decodeTgxToText(const TgxCoderTgxInfo& tgxData, const TgxCoderInstruction& instruction, std::ostream& outStream);
+TgxCoderResult decodeTgxToText(const TgxCoderTgxInfo& tgxData, std::ostream& outStream);

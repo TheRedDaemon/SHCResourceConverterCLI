@@ -11,7 +11,7 @@ static bool isRectContainedInCanvas(int x, int y,
   return x >= 0 && y >= 0 && x + innerWidth <= canvasWidth && y + innerHeight <= canvasHeight;
 }
 
-extern "C" __declspec(dllexport) Gm1CoderResult decodeTileToRaw(const uint16_t* tile, Gm1CoderRawInfo* raw, uint16_t transparentColor)
+extern "C" __declspec(dllexport) Gm1CoderResult decodeTileToRaw(const uint16_t* tile, Gm1CoderRawInfo* raw)
 {
   if (!(tile && raw))
   {
@@ -46,8 +46,7 @@ extern "C" __declspec(dllexport) Gm1CoderResult decodeTileToRaw(const uint16_t* 
       }
       else
       {
-        raw->raw[targetIndex++] = transparentColor;
-        raw->raw[targetIndex++] = transparentColor;
+        targetIndex += 2;
       }
     }
 
@@ -56,7 +55,7 @@ extern "C" __declspec(dllexport) Gm1CoderResult decodeTileToRaw(const uint16_t* 
   return Gm1CoderResult::SUCCESS;
 }
 
-extern "C" __declspec(dllexport) Gm1CoderResult encodeRawToTile(const Gm1CoderRawInfo* raw, uint16_t* tile, uint16_t transparentColor)
+extern "C" __declspec(dllexport) Gm1CoderResult encodeRawToTile(const Gm1CoderRawInfo* raw, uint16_t* tile)
 {
   if (!(raw && tile))
   {
@@ -96,12 +95,7 @@ extern "C" __declspec(dllexport) Gm1CoderResult encodeRawToTile(const Gm1CoderRa
       }
       else
       {
-        const bool firstTransparent{ raw->raw[sourceIndex++] == transparentColor };
-        const bool secondTransparent{ raw->raw[sourceIndex++] == transparentColor };
-        if (!firstTransparent || !secondTransparent)
-        {
-          return Gm1CoderResult::EXPECTED_TRANSPARENT_PIXEL;
-        }
+        sourceIndex += 2;
       }
     }
 
@@ -109,6 +103,11 @@ extern "C" __declspec(dllexport) Gm1CoderResult encodeRawToTile(const Gm1CoderRa
   }
   return tile ? Gm1CoderResult::SUCCESS : Gm1CoderResult::CHECKED_PARAMETER;
 }
+
+// UNCOMPRESSED (1 and 2) are the last using the transparent color during "decoding" (copy), since they do not seem to save any
+// data that could allow to remove the extra data at the end
+
+// there is currently no safety should a raw contain "transparent" data
 
 Gm1CoderResult copyUncompressedToRaw(const Gm1CoderDataInfo* uncompressed, Gm1CoderRawInfo* raw, uint16_t transparentColor)
 {
@@ -226,8 +225,6 @@ Gm1CoderResult copyRawToUncompressed(const Gm1CoderRawInfo* raw, Gm1CoderDataInf
     return Gm1CoderResult::FILLED_ENCODING_SIZE;
   }
 }
-
-// TODO implement TGX coder for 8bit variant -> how to do? mix with file?
 
 const char* getGm1ResultDescription(const Gm1CoderResult result)
 {

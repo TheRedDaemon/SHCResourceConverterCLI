@@ -39,7 +39,7 @@ namespace TGXFile
     inline constexpr std::string_view COMMENT_HEIGHT{ "height" };
   }
 
-  void validateTgxResource(const TgxResource& resource, const TgxCoderInstruction& instructions, bool tgxAsText);
+  void validateTgxResource(const TgxResource& resource, bool tgxAsText);
 
   UniqueTgxResourcePointer loadTgxResource(const std::filesystem::path& file);
   void saveTgxResource(const std::filesystem::path& file, const TgxResource& resource);

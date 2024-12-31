@@ -13,8 +13,7 @@
 // TODO: indexed color currently equals the animation gm1s, and they have another difference outside only using one byte:
 // newlines finish early, which might effect the encoder the most, but the padding still is required
 
-// TODO: approach needs to change for decoding: the canvas needs to be initialized with the transparency color and the decoding just skips them
-// TODO: the handling of tile object encoding needs an extra step: the tile needs to ignore non-valid tiles, the image needs an extra step to cut
+// TODO: the handling of tile object encoding needs an extra step: the image needs to be copied to its own buffer, and the image needs an extra step to cut
 // out the edges of the tile
 
 static constexpr int MAX_PIXEL_PER_MARKER{ 32 };
@@ -23,9 +22,9 @@ static constexpr uint16_t FILLED_INDEXED_COLOR_ALPHA{ 0xff00 };
 
 
 // "instruction" currently unused
-TgxCoderResult analyzeTgxToRaw(const TgxCoderTgxInfo* tgxData, const TgxCoderInstruction* instruction, TgxAnalysis* tgxAnalysis)
+TgxCoderResult analyzeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxAnalysis* tgxAnalysis)
 {
-  if (!(tgxData && instruction))
+  if (!tgxData)
   {
     return TgxCoderResult::MISSING_REQUIRED_STRUCTS;
   }
@@ -127,15 +126,15 @@ TgxCoderResult analyzeTgxToRaw(const TgxCoderTgxInfo* tgxData, const TgxCoderIns
 }
 
 // target needs to be able to fit the result, no safety for this case
-TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* rawData, const TgxCoderInstruction* instruction, TgxAnalysis* tgxAnalysis)
+TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* rawData, TgxAnalysis* tgxAnalysis)
 {
-  if (!(tgxData && rawData && instruction))
+  if (!(tgxData && rawData))
   {
     return TgxCoderResult::MISSING_REQUIRED_STRUCTS;
   }
 
   // pre-scan, since this code is meant to be careful, not fast
-  const TgxCoderResult result{ analyzeTgxToRaw(tgxData, instruction, tgxAnalysis) };
+  const TgxCoderResult result{ analyzeTgxToRaw(tgxData, tgxAnalysis) };
   if (result != TgxCoderResult::SUCCESS)
   {
     return result;
@@ -168,10 +167,7 @@ TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* r
       // could be removed if guarantee could be made that this structure does not exist
       if (currentWidth < tgxData->tgxWidth)
       {
-        for (const int indexEnd{ targetIndex + tgxData->tgxWidth - currentWidth }; targetIndex < indexEnd; ++targetIndex)
-        {
-          rawData->data[targetIndex] = instruction->transparentPixelRawColor;
-        }
+        targetIndex += tgxData->tgxWidth - currentWidth;
       }
 
       currentWidth = 0; 
@@ -224,10 +220,7 @@ TgxCoderResult decodeTgxToRaw(const TgxCoderTgxInfo* tgxData, TgxCoderRawInfo* r
       }
       break;
     case TgxStreamMarker::TGX_MARKER_TRANSPARENT_PIXELS:
-      for (const int indexEnd{ targetIndex + pixelNumber }; targetIndex < indexEnd; ++targetIndex)
-      {
-        rawData->data[targetIndex] = instruction->transparentPixelRawColor;
-      }
+      targetIndex += pixelNumber;
       break;
     }
     currentWidth += pixelNumber;
@@ -282,7 +275,7 @@ TgxCoderResult encodeRawToTgx(const TgxCoderRawInfo* rawData, TgxCoderTgxInfo* t
             {
               return TgxCoderResult::INVALID_TGX_DATA_SIZE;
             }
-            tgxData->data[targetIndex++] = TgxStreamMarker::TGX_MARKER_TRANSPARENT_PIXELS | (transparentPixelCount - 1);
+            tgxData->data[targetIndex++] = TgxStreamMarker::TGX_MARKER_TRANSPARENT_PIXELS | (pixelThisBatch - 1);
           };
         }
       }
@@ -491,9 +484,9 @@ const char* getTgxResultDescription(const TgxCoderResult result)
   }
 }
 
-TgxCoderResult decodeTgxToText(const TgxCoderTgxInfo& tgxData, const TgxCoderInstruction& instruction, std::ostream& outStream)
+TgxCoderResult decodeTgxToText(const TgxCoderTgxInfo& tgxData, std::ostream& outStream)
 {
-  const TgxCoderResult result{ analyzeTgxToRaw(&tgxData, &instruction, nullptr) };
+  const TgxCoderResult result{ analyzeTgxToRaw(&tgxData, nullptr) };
   if (result != TgxCoderResult::SUCCESS)
   {
     return result;

@@ -8,7 +8,7 @@
 
 namespace TGXFile
 {
-  void validateTgxResource(const TgxResource& resource, const TgxCoderInstruction& instructions, bool tgxAsText)
+  void validateTgxResource(const TgxResource& resource, bool tgxAsText)
   {
     Log(LogLevel::INFO, "Try validating given resource.");
     
@@ -22,12 +22,13 @@ namespace TGXFile
 
     Out("### General TGX info ###\n{}\n\n", tgxInfo);
     TgxAnalysis tgxAnalysis{};
-    const TgxCoderResult result{ analyzeTgxToRaw(&tgxInfo, &instructions, &tgxAnalysis) };
+    const TgxCoderResult result{ analyzeTgxToRaw(&tgxInfo, &tgxAnalysis) };
     if (result != TgxCoderResult::SUCCESS)
     {
       Out("{}\n", std::string_view{ getTgxResultDescription(result) });
       Out("### TGX seems invalid. ###\n");
       Log(LogLevel::ERROR, "Validation completed. TGX is invalid.");
+      return;
     }
 
     Out("### Structure meta data ###\n{}\n\n### TGX seems valid ###\n", tgxAnalysis);
@@ -38,11 +39,12 @@ namespace TGXFile
     }
     Log(LogLevel::INFO, "Printing TGX as text to stdout.");
     Out("\n");
-    const TgxCoderResult toTextResult{ decodeTgxToText(tgxInfo, instructions, STD_OUT) };
+    const TgxCoderResult toTextResult{ decodeTgxToText(tgxInfo, STD_OUT) };
     if (toTextResult != TgxCoderResult::SUCCESS)
     {
       Out("{}\n", std::string_view{ getTgxResultDescription(toTextResult) });
       Log(LogLevel::ERROR, "Failed to print TGX as text.");
+      return;
     }
     Log(LogLevel::INFO, "Completed to print TGX as text.");
   }
@@ -255,7 +257,7 @@ namespace TGXFile
         "This is valid, but might produce unexpected results. Set the coder options in the CLI if this is not wanted.");
     }
 
-    auto rawData{ std::make_unique<uint16_t[]>(static_cast<size_t>(width) * height) };
+    auto rawData{ std::make_unique_for_overwrite<uint16_t[]>(static_cast<size_t>(width) * height) };
     Log(LogLevel::DEBUG, "Loading raw data.");
     try {
       std::ifstream in;
@@ -318,6 +320,13 @@ namespace TGXFile
     return resource;
   }
 
+  static std::unique_ptr<uint16_t[]> createMemoryForRaw(const int32_t width, const int32_t height, const uint16_t transparentPixel) {
+    const size_t rawDataPixelSize{ static_cast<size_t>(width) * height };
+    auto rawData{ std::make_unique_for_overwrite<uint16_t[]>(rawDataPixelSize) };
+    std::fill(rawData.get(), rawData.get() + rawDataPixelSize, transparentPixel);
+    return rawData;
+  }
+
   void saveTgxResourceAsRaw(const std::filesystem::path& folder, const TgxResource& resource, const TgxCoderInstruction& instructions)
   {
     Log(LogLevel::INFO, "Try saving TGX resource as raw data.");
@@ -325,7 +334,7 @@ namespace TGXFile
     std::filesystem::create_directories(folder);
     Log(LogLevel::DEBUG, "Created directory.");
 
-    auto rawData{ std::make_unique<uint16_t[]>(static_cast<size_t>(resource.header->width) * resource.header->height) };
+    auto rawData{ createMemoryForRaw(resource.header->width, resource.header->height, instructions.transparentPixelRawColor) };
 
     const TgxCoderTgxInfo tgxInfo{
       .data{ resource.imageData },
@@ -340,7 +349,7 @@ namespace TGXFile
       .rawX{ 0 },
       .rawY{ 0 }
     };
-    const TgxCoderResult result{ decodeTgxToRaw(&tgxInfo, &rawInfo, &instructions, nullptr) };
+    const TgxCoderResult result{ decodeTgxToRaw(&tgxInfo, &rawInfo, nullptr) };
     if (result != TgxCoderResult::SUCCESS)
     {
       throw std::exception{ getTgxResultDescription(result) };

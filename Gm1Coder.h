@@ -52,8 +52,6 @@ struct std::formatter<Gm1CoderDataInfo> : public std::formatter<std::string>
   }
 };
 
-constexpr uint16_t RAW_TRANSPARENT{ 0 }; // for placing transparency and identification of it
-
 constexpr int TILE_BYTE_SIZE{ 0x200 };
 constexpr int TILE_WIDTH{ 30 };
 constexpr int TILE_HEIGHT{ 16 };
@@ -62,8 +60,8 @@ constexpr int TILE_HEIGHT{ 16 };
 // In all these cases, the Ptr to be written too needs to be a nullptr, and the result will be CHECKED_PARAMETER
 
 // tiles have a stable size of 512 bytes, so the tile ptr always assumes to provide this size, the assumed canvas is also always 30x16 pixels
-extern "C" __declspec(dllexport) Gm1CoderResult decodeTileToRaw(const uint16_t* tile, Gm1CoderRawInfo* raw, uint16_t transparentColor);
-extern "C" __declspec(dllexport) Gm1CoderResult encodeRawToTile(const Gm1CoderRawInfo* raw, uint16_t* tile, uint16_t transparentColor);
+extern "C" __declspec(dllexport) Gm1CoderResult decodeTileToRaw(const uint16_t* tile, Gm1CoderRawInfo* raw);
+extern "C" __declspec(dllexport) Gm1CoderResult encodeRawToTile(const Gm1CoderRawInfo* raw, uint16_t* tile);
 
 // simply copies the given uncompressed data to raw, not much checks are done
 extern "C" __declspec(dllexport) Gm1CoderResult copyUncompressedToRaw(const Gm1CoderDataInfo* uncompressed, Gm1CoderRawInfo* raw, uint16_t transparentColor);

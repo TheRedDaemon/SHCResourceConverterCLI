@@ -163,8 +163,7 @@ static int executeTest(const CLIArguments& cliArguments)
       {
         return 1;
       }
-      TGXFile::validateTgxResource(*tgxResource, getCoderInstructionFromCliOptionsWithFallback(cliArguments),
-        cliArguments.getOptionAs<boolFromStr>(OPTION::TEST_TGX_TO_TEXT).value_or(false));
+      TGXFile::validateTgxResource(*tgxResource, cliArguments.getOptionAs<boolFromStr>(OPTION::TEST_TGX_TO_TEXT).value_or(false));
     }
     break;
     case PathNameType::GM1_FILE:
