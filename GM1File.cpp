@@ -514,13 +514,93 @@ namespace GM1File
     outGm1GeneralImageInfo.unknown_0x4 = intFromStr<uint8_t>(imageHeaderListEntries.at(2));
     outGm1GeneralImageInfo.unknown_0x5 = intFromStr<uint8_t>(imageHeaderListEntries.at(3));
     outGm1GeneralImageInfo.unknown_0x6 = intFromStr<uint8_t>(imageHeaderListEntries.at(4));
-    outGm1GeneralImageInfo.flags = intFromStr<uint8_t>(imageHeaderListEntries.at(5));
+    outGm1GeneralImageInfo.flags = intFromStr<uint8_t, 2>(imageHeaderListEntries.at(5));
     return true;
   }
 
   UniqueGm1ResourcePointer loadGm1ResourceFromRaw(const std::filesystem::path& folder)
   {
     throw std::exception{ "Not yet implemented." };
+  }
+
+  static void writeGm1HeaderInfoToResourceMetaObject(const Gm1HeaderInfo& headerInfo, ResourceMetaFormat::ResourceMetaFileWriter& metaWriter)
+  {
+    Log(LogLevel::DEBUG, "Write Gm1Header info object to meta file.");
+    metaWriter.startObject(Gm1HeaderMeta::RESOURCE_IDENTIFIER, Gm1HeaderMeta::CURRENT_VERSION)
+      .writeListEntry(std::to_string(headerInfo.unknown_0x0), Gm1HeaderMeta::COMMENT_UNKNOWN_0x0)
+      .writeListEntry(std::to_string(headerInfo.unknown_0x4), Gm1HeaderMeta::COMMENT_UNKNOWN_0x4)
+      .writeListEntry(std::to_string(headerInfo.unknown_0x8), Gm1HeaderMeta::COMMENT_UNKNOWN_0x8)
+      .writeListEntry(std::to_string(headerInfo.numberOfPicturesInFile), Gm1HeaderMeta::COMMENT_NUMBER_OF_PICTURES_IN_FILE)
+      .writeListEntry(std::to_string(headerInfo.unknown_0x10), Gm1HeaderMeta::COMMENT_UNKNOWN_0x10)
+      .writeListEntry(std::to_string(static_cast<int32_t>(headerInfo.gm1Type)), Gm1HeaderMeta::COMMENT_GM1_TYPE)
+      .writeListEntry(std::to_string(headerInfo.unknown_0x18), Gm1HeaderMeta::COMMENT_UNKNOWN_0x18)
+      .writeListEntry(std::to_string(headerInfo.unknown_0x1C), Gm1HeaderMeta::COMMENT_UNKNOWN_0x1C)
+      .writeListEntry(std::to_string(headerInfo.unknown_0x20), Gm1HeaderMeta::COMMENT_UNKNOWN_0x20)
+      .writeListEntry(std::to_string(headerInfo.unknown_0x24), Gm1HeaderMeta::COMMENT_UNKNOWN_0x24)
+      .writeListEntry(std::to_string(headerInfo.unknown_0x28), Gm1HeaderMeta::COMMENT_UNKNOWN_0x28)
+      .writeListEntry(std::to_string(headerInfo.unknown_0x2C), Gm1HeaderMeta::COMMENT_UNKNOWN_0x2C)
+      .writeListEntry(std::to_string(headerInfo.width), Gm1HeaderMeta::COMMENT_WIDTH)
+      .writeListEntry(std::to_string(headerInfo.height), Gm1HeaderMeta::COMMENT_HEIGHT)
+      .writeListEntry(std::to_string(headerInfo.unknown_0x38), Gm1HeaderMeta::COMMENT_UNKNOWN_0x38)
+      .writeListEntry(std::to_string(headerInfo.unknown_0x3C), Gm1HeaderMeta::COMMENT_UNKNOWN_0x3C)
+      .writeListEntry(std::to_string(headerInfo.unknown_0x40), Gm1HeaderMeta::COMMENT_UNKNOWN_0x40)
+      .writeListEntry(std::to_string(headerInfo.unknown_0x44), Gm1HeaderMeta::COMMENT_UNKNOWN_0x44)
+      .writeListEntry(std::to_string(headerInfo.originX), Gm1HeaderMeta::COMMENT_ORIGIN_X)
+      .writeListEntry(std::to_string(headerInfo.originY), Gm1HeaderMeta::COMMENT_ORIGIN_Y)
+      .writeListEntry(std::to_string(headerInfo.dataSize), Gm1HeaderMeta::COMMENT_DATA_SIZE)
+      .writeListEntry(std::to_string(headerInfo.unknown_0x54), Gm1HeaderMeta::COMMENT_UNKNOWN_0x54)
+      .endObject();
+  }
+
+  static void savePaletteToFile(const std::filesystem::path& palettePath, std::span<const uint16_t> palette)
+  {
+    std::ofstream out;
+    out.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+    out.open(palettePath, std::ios::out | std::ios::trunc | std::ios::binary);
+    out.write(reinterpret_cast<const char*>(palette.data()), palette.size() * sizeof(uint16_t));
+  }
+
+  static void writeGm1ImageHeaderToResourceMetaObject(const uint32_t offset, const uint32_t size, const Gm1ImageHeader& imageHeader,
+    ResourceMetaFormat::ResourceMetaFileWriter& metaWriter)
+  {
+    Log(LogLevel::DEBUG, "Write Gm1ImageHeader object to meta file.");
+    metaWriter.startObject(Gm1ImageHeaderMeta::RESOURCE_IDENTIFIER, Gm1ImageHeaderMeta::CURRENT_VERSION)
+      .writeMapEntry(Gm1ImageHeaderMeta::OFFSET_KEY, std::to_string(offset))
+      .writeMapEntry(Gm1ImageHeaderMeta::SIZE_KEY, std::to_string(size))
+      .writeListEntry(std::to_string(imageHeader.width), Gm1ImageHeaderMeta::COMMENT_WIDTH)
+      .writeListEntry(std::to_string(imageHeader.height), Gm1ImageHeaderMeta::COMMENT_HEIGHT)
+      .writeListEntry(std::to_string(imageHeader.offsetX), Gm1ImageHeaderMeta::COMMENT_OFFSET_X)
+      .writeListEntry(std::to_string(imageHeader.offsetY), Gm1ImageHeaderMeta::COMMENT_OFFSET_Y)
+      .endObject();
+  }
+
+  static void writeGm1TileObjectImageInfoToResourceMetaObject(const Gm1TileObjectImageInfo& gm1TileObjectImageInfo,
+    ResourceMetaFormat::ResourceMetaFileWriter& metaWriter)
+  {
+    Log(LogLevel::DEBUG, "Write Gm1TileObjectImageInfo object to meta file.");
+    metaWriter.startObject(Gm1TileObjectImageInfoMeta::RESOURCE_IDENTIFIER, Gm1TileObjectImageInfoMeta::CURRENT_VERSION)
+      .writeListEntry(std::to_string(gm1TileObjectImageInfo.imagePart), Gm1TileObjectImageInfoMeta::COMMENT_IMAGE_PART)
+      .writeListEntry(std::to_string(gm1TileObjectImageInfo.subParts), Gm1TileObjectImageInfoMeta::COMMENT_SUB_PARTS)
+      .writeListEntry(std::to_string(gm1TileObjectImageInfo.tileOffset), Gm1TileObjectImageInfoMeta::COMMENT_TILE_OFFSET)
+      .writeListEntry(std::to_string(static_cast<int8_t>(gm1TileObjectImageInfo.imagePosition)), Gm1TileObjectImageInfoMeta::COMMENT_IMAGE_POSITION)
+      .writeListEntry(std::to_string(gm1TileObjectImageInfo.imageOffsetX), Gm1TileObjectImageInfoMeta::COMMENT_IMAGE_OFFSET_X)
+      .writeListEntry(std::to_string(gm1TileObjectImageInfo.imageWidth), Gm1TileObjectImageInfoMeta::COMMENT_IMAGE_WIDTH)
+      .writeListEntry(std::to_string(gm1TileObjectImageInfo.animatedColor), Gm1TileObjectImageInfoMeta::COMMENT_ANIMATED_COLOR)
+      .endObject();
+  }
+
+  static void writeGm1GeneralImageInfoToResourceMetaObject(const Gm1GeneralImageInfo& gm1GeneralImageInfo,
+    ResourceMetaFormat::ResourceMetaFileWriter& metaWriter)
+  {
+    Log(LogLevel::DEBUG, "Write Gm1GeneralImageInfo object to meta file.");
+    metaWriter.startObject(Gm1GeneralImageInfoMeta::RESOURCE_IDENTIFIER, Gm1GeneralImageInfoMeta::CURRENT_VERSION)
+      .writeListEntry(std::to_string(gm1GeneralImageInfo.relativeDataPos), Gm1GeneralImageInfoMeta::COMMENT_RELATIVE_DATA_POS)
+      .writeListEntry(std::to_string(gm1GeneralImageInfo.fontRelatedSize), Gm1GeneralImageInfoMeta::COMMENT_FONT_RELATED_SIZE)
+      .writeListEntry(std::to_string(gm1GeneralImageInfo.unknown_0x4), Gm1GeneralImageInfoMeta::COMMENT_UNKNOWN_0x4)
+      .writeListEntry(std::to_string(gm1GeneralImageInfo.unknown_0x5), Gm1GeneralImageInfoMeta::COMMENT_UNKNOWN_0x5)
+      .writeListEntry(std::to_string(gm1GeneralImageInfo.unknown_0x6), Gm1GeneralImageInfoMeta::COMMENT_UNKNOWN_0x6)
+      .writeListEntry(std::to_string(gm1GeneralImageInfo.flags), Gm1GeneralImageInfoMeta::COMMENT_FLAGS)
+      .endObject();
   }
 
   void saveGm1ResourceAsRaw(const std::filesystem::path& folder, const Gm1Resource& resource)
