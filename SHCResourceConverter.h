@@ -40,7 +40,7 @@ enum class Gm1Type : int32_t
 };
 
 // source: https://github.com/PodeCaradox/Gm1KonverterCrossPlatform/blob/master/Gm1KonverterCrossPlatform/Files/GM1FileHeader.cs
-struct alignas(int32_t) Gm1Header
+struct alignas(int32_t) Gm1HeaderInfo
 {
   uint32_t unknown_0x0;
   uint32_t unknown_0x4;
@@ -64,6 +64,11 @@ struct alignas(int32_t) Gm1Header
   uint32_t originY;
   uint32_t dataSize;
   uint32_t unknown_0x54;
+};
+
+struct alignas(int32_t) Gm1Header
+{
+  Gm1HeaderInfo info;
   uint16_t colorPalette[10][256];
 };
 
@@ -81,7 +86,7 @@ struct alignas(int32_t) Gm1TileObjectImageInfo
   uint8_t subParts;
   uint16_t tileOffset;
   Gm1TileObjectImagePosition imagePosition;
-  uint8_t imageOffsetX;
+  int8_t imageOffsetX;
   uint8_t imageWidth;
   uint8_t animatedColor; // if alpha 1?
 };
@@ -96,23 +101,10 @@ struct alignas(int32_t) Gm1GeneralImageInfo
   uint8_t flags; // used to indicate together with game flag, if certain animation frames are skipped
 };
 
-struct alignas(int32_t) Gm1UnknownImageInfo
-{
-  uint8_t unknown_0x0;
-  uint8_t unknown_0x1;
-  uint8_t unknown_0x2;
-  uint8_t unknown_0x3;
-  uint8_t unknown_0x4;
-  uint8_t unknown_0x5;
-  uint8_t unknown_0x6;
-  uint8_t unknown_0x7;
-};
-
 union alignas(int32_t) Gm1ImageInfo
 {
   Gm1GeneralImageInfo generalImageInfo;
   Gm1TileObjectImageInfo tileObjectImageInfo;
-  Gm1UnknownImageInfo unknownImageInfo;
 };
 
 struct alignas(int32_t) Gm1ImageHeader

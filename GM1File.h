@@ -72,28 +72,28 @@ struct std::formatter<Gm1Header> : public std::formatter<std::string>
       "Data Size: {}\n"
       "Unknown 0x54: {}\n"
       "Omitting Palettes",
-      args.unknown_0x0,
-      args.unknown_0x4,
-      args.unknown_0x8,
-      args.numberOfPicturesInFile,
-      args.unknown_0x10,
-      args.gm1Type,
-      args.unknown_0x18,
-      args.unknown_0x1C,
-      args.unknown_0x20,
-      args.unknown_0x24,
-      args.unknown_0x28,
-      args.unknown_0x2C,
-      args.width,
-      args.height,
-      args.unknown_0x38,
-      args.unknown_0x3C,
-      args.unknown_0x40,
-      args.unknown_0x44,
-      args.originX,
-      args.originY,
-      args.dataSize,
-      args.unknown_0x54
+      args.info.unknown_0x0,
+      args.info.unknown_0x4,
+      args.info.unknown_0x8,
+      args.info.numberOfPicturesInFile,
+      args.info.unknown_0x10,
+      args.info.gm1Type,
+      args.info.unknown_0x18,
+      args.info.unknown_0x1C,
+      args.info.unknown_0x20,
+      args.info.unknown_0x24,
+      args.info.unknown_0x28,
+      args.info.unknown_0x2C,
+      args.info.width,
+      args.info.height,
+      args.info.unknown_0x38,
+      args.info.unknown_0x3C,
+      args.info.unknown_0x40,
+      args.info.unknown_0x44,
+      args.info.originX,
+      args.info.originY,
+      args.info.dataSize,
+      args.info.unknown_0x54
     );
   }
 };
@@ -188,33 +188,6 @@ struct std::formatter<Gm1GeneralImageInfo> : public std::formatter<std::string>
   }
 };
 
-template<>
-struct std::formatter<Gm1UnknownImageInfo> : public std::formatter<std::string>
-{
-  template<typename FormatContext>
-  auto format(const Gm1UnknownImageInfo& args, FormatContext& ctx) const
-  {
-    return format_to(ctx.out(),
-      "Unknown 0x0: {}\n"
-      "Unknown 0x1: {}\n"
-      "Unknown 0x2: {}\n"
-      "Unknown 0x3: {}\n"
-      "Unknown 0x4: {}\n"
-      "Unknown 0x5: {}\n"
-      "Unknown 0x6: {}\n"
-      "Unknown 0x7: {}",
-      args.unknown_0x0,
-      args.unknown_0x1,
-      args.unknown_0x2,
-      args.unknown_0x3,
-      args.unknown_0x4,
-      args.unknown_0x5,
-      args.unknown_0x6,
-      args.unknown_0x7
-    );
-  }
-};
-
 
 // actual file data
 
@@ -225,6 +198,112 @@ namespace GM1File
   inline constexpr std::string_view FILE_EXTENSION{ ".gm1" };
   inline constexpr std::uintmax_t MIN_FILE_SIZE{ sizeof(Gm1Header) }; // guess
   inline constexpr std::uintmax_t MAX_FILE_SIZE{ std::numeric_limits<uint32_t>::max() }; // setting limit
+
+  inline constexpr std::string_view RAW_DATA_FILE_EXTENSION{ ".data" };
+
+  inline constexpr std::string_view PALETTE_FILE_EXTENSION{ ".palette" };
+  inline constexpr int PALETTE_COUNT{ 10 };
+  inline constexpr int PALETTE_SIZE{ 512 };
+
+  namespace Gm1ResourceMeta
+  {
+    inline constexpr std::string_view RESOURCE_IDENTIFIER{ "Gm1Resource" };
+    inline constexpr int CURRENT_VERSION{ 1 };
+    inline constexpr int SUPPORTED_VERSIONS[]{ 1 };
+
+    inline constexpr int MAP_ENTRIES{ 3 };
+    inline constexpr int LIST_ENTRIES{ 0 };
+
+    inline constexpr std::string_view RAW_DATA_PATH_KEY{ "data path" };
+    inline constexpr std::string_view RAW_DATA_SIZE_KEY{ "data size" };
+    inline constexpr std::string_view RAW_DATA_TRANSPARENT_PIXEL_KEY{ "transparent pixel" };
+  }
+
+  namespace Gm1HeaderMeta
+  {
+    inline constexpr std::string_view RESOURCE_IDENTIFIER{ "Gm1HeaderMeta" };
+    inline constexpr int CURRENT_VERSION{ 1 };
+    inline constexpr int SUPPORTED_VERSIONS[]{ 1 };
+
+    inline constexpr int MAP_ENTRIES{ 0 };
+    inline constexpr int LIST_ENTRIES{ 22 };
+
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x0{ "unknown 0x0" };
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x4{ "unknown 0x4" };
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x8{ "unknown 0x8" };
+    inline constexpr std::string_view COMMENT_NUMBER_OF_PICTURES_IN_FILE{ "number of pictures in file" };
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x10{ "unknown 0x10" };
+    inline constexpr std::string_view COMMENT_GM1_TYPE{ "gm1 type" };
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x18{ "unknown 0x18" };
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x1C{ "unknown 0x1C" };
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x20{ "unknown 0x20" };
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x24{ "unknown 0x24" };
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x28{ "unknown 0x28" };
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x2C{ "unknown 0x2C" };
+    inline constexpr std::string_view COMMENT_WIDTH{ "width" };
+    inline constexpr std::string_view COMMENT_HEIGHT{ "height" };
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x38{ "unknown 0x38" };
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x3C{ "unknown 0x3C" };
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x40{ "unknown 0x40" };
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x44{ "unknown 0x44" };
+    inline constexpr std::string_view COMMENT_ORIGIN_X{ "origin x" };
+    inline constexpr std::string_view COMMENT_ORIGIN_Y{ "origin y" };
+    inline constexpr std::string_view COMMENT_DATA_SIZE{ "data size" };
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x54{ "unknown 0x54" };
+  }
+
+  namespace Gm1ImageHeaderMeta
+  {
+    inline constexpr std::string_view RESOURCE_IDENTIFIER{ "Gm1ImageHeader" };
+    inline constexpr int CURRENT_VERSION{ 1 };
+    inline constexpr int SUPPORTED_VERSIONS[]{ 1 };
+
+    inline constexpr int MAP_ENTRIES{ 2 };
+    inline constexpr int LIST_ENTRIES{ 4 };
+
+    inline constexpr std::string_view OFFSET_KEY{ "data offset" };
+    inline constexpr std::string_view SIZE_KEY{ "data size" };
+
+    inline constexpr std::string_view COMMENT_WIDTH{ "width" };
+    inline constexpr std::string_view COMMENT_HEIGHT{ "height" };
+    inline constexpr std::string_view COMMENT_OFFSET_X{ "offset x" };
+    inline constexpr std::string_view COMMENT_OFFSET_Y{ "offset y" };
+  }
+
+  namespace Gm1TileObjectImageInfoMeta
+  {
+    inline constexpr std::string_view RESOURCE_IDENTIFIER{ "Gm1TileObjectImageInfo" };
+    inline constexpr int CURRENT_VERSION{ 1 };
+    inline constexpr int SUPPORTED_VERSIONS[]{ 1 };
+
+    inline constexpr int MAP_ENTRIES{ 0 };
+    inline constexpr int LIST_ENTRIES{ 7 };
+
+    inline constexpr std::string_view COMMENT_IMAGE_PART{ "image part" };
+    inline constexpr std::string_view COMMENT_SUB_PARTS{ "sub parts" };
+    inline constexpr std::string_view COMMENT_TILE_OFFSET{ "tile offset" };
+    inline constexpr std::string_view COMMENT_IMAGE_POSITION{ "image position" };
+    inline constexpr std::string_view COMMENT_IMAGE_OFFSET_X{ "image offset x" };
+    inline constexpr std::string_view COMMENT_IMAGE_WIDTH{ "image width" };
+    inline constexpr std::string_view COMMENT_ANIMATED_COLOR{ "animated color" };
+  }
+
+  namespace Gm1GeneralImageInfoMeta
+  {
+    inline constexpr std::string_view RESOURCE_IDENTIFIER{ "Gm1GeneralImageInfo" };
+    inline constexpr int CURRENT_VERSION{ 1 };
+    inline constexpr int SUPPORTED_VERSIONS[]{ 1 };
+
+    inline constexpr int MAP_ENTRIES{ 0 };
+    inline constexpr int LIST_ENTRIES{ 6 };
+
+    inline constexpr std::string_view COMMENT_RELATIVE_DATA_POS{ "relative data position" };
+    inline constexpr std::string_view COMMENT_FONT_RELATED_SIZE{ "font related size" };
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x4{ "unknown 0x4" };
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x5{ "unknown 0x5" };
+    inline constexpr std::string_view COMMENT_UNKNOWN_0x6{ "unknown 0x6" };
+    inline constexpr std::string_view COMMENT_FLAGS{ "flags" };
+  }
 
   // basically the hight the image is "sunk" into the tile, and it seems to be a constant in the game
   inline constexpr int TILE_IMAGE_HEIGHT_OFFSET{ 7 };

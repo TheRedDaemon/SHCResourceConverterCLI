@@ -6,6 +6,7 @@
 #include "ResourceMetaFormat.h"
 
 #include <fstream>
+#include <span>
 
 // TODO: the tile coder might actually need to be precise and not write transparency, assuming the images are
 // placed on the canvas. Should it turn out that this is the case, either the coder needs to be different, or
@@ -33,7 +34,7 @@ namespace GM1File
 {
   static bool validateGm1UncompressedResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions)
   {
-    for (size_t i{ 0 }; i < resource.gm1Header->numberOfPicturesInFile; ++i)
+    for (size_t i{ 0 }; i < resource.gm1Header->info.numberOfPicturesInFile; ++i)
     {
       const Gm1Image& image{ resource.imageHeaders[i] };
       const uint32_t offset{ resource.imageOffsets[i] };
@@ -68,7 +69,7 @@ namespace GM1File
 
   static bool validateGm1TgxResource(const Gm1Resource& resource, bool tgxAsText)
   {
-    for (size_t i{ 0 }; i < resource.gm1Header->numberOfPicturesInFile; ++i)
+    for (size_t i{ 0 }; i < resource.gm1Header->info.numberOfPicturesInFile; ++i)
     {
       const Gm1Image& image{ resource.imageHeaders[i] };
       const uint32_t offset{ resource.imageOffsets[i] };
@@ -77,13 +78,21 @@ namespace GM1File
       Out("### Image {} ###\n{}\n\n{}\n\n", i, image.imageHeader, image.imageInfo.generalImageInfo);
 
       const TgxCoderTgxInfo tgxInfo{
-        .colorType{ resource.gm1Header->gm1Type == Gm1Type::GM1_TYPE_ANIMATIONS ? TgxColorType::INDEXED : TgxColorType::DEFAULT },
+        .colorType{ resource.gm1Header->info.gm1Type == Gm1Type::GM1_TYPE_ANIMATIONS ? TgxColorType::INDEXED : TgxColorType::DEFAULT },
         .data{ resource.imageData + offset },
         .dataSize{ size },
         .tgxWidth{ image.imageHeader.width },
         .tgxHeight{ image.imageHeader.height }
       };
       Out("# General TGX Info #\n{}\n\n", tgxInfo);
+
+      // animations use the origin from the header, so to make sense, all of them need to have the same image size
+      if (resource.gm1Header->info.gm1Type == Gm1Type::GM1_TYPE_ANIMATIONS
+        && (tgxInfo.tgxWidth != resource.gm1Header->info.width || tgxInfo.tgxHeight != resource.gm1Header->info.height))
+      {
+        Out("Is animation resource, but dimensions of image do not match dimensions of header.\n");
+        return false;
+      }
 
       TgxAnalysis tgxAnalysis{};
       const TgxCoderResult result{ analyzeTgxToRaw(&tgxInfo, &tgxAnalysis) };
@@ -113,7 +122,7 @@ namespace GM1File
 
   static bool validateGm1TileObjectResource(const Gm1Resource& resource, bool tgxAsText)
   {
-    for (size_t i{ 0 }; i < resource.gm1Header->numberOfPicturesInFile; ++i)
+    for (size_t i{ 0 }; i < resource.gm1Header->info.numberOfPicturesInFile; ++i)
     {
       const Gm1Image& image{ resource.imageHeaders[i] };
       const uint32_t offset{ resource.imageOffsets[i] };
@@ -180,12 +189,12 @@ namespace GM1File
     Log(LogLevel::INFO, "Try validating given resource.");
 
     Out("### General GM1 info ###\nType: {}\nNumber of pictures: {}\nImage data size: {}\n\n",
-      resource.gm1Header->gm1Type, resource.gm1Header->numberOfPicturesInFile, resource.gm1Header->dataSize);
+      resource.gm1Header->info.gm1Type, resource.gm1Header->info.numberOfPicturesInFile, resource.gm1Header->info.dataSize);
 
     Out("### GM1 Header ###\n{}\n\n", *resource.gm1Header);
 
     bool validationSuccessful{ false };
-    switch (resource.gm1Header->gm1Type)
+    switch (resource.gm1Header->info.gm1Type)
     {
     case Gm1Type::GM1_TYPE_INTERFACE:
     case Gm1Type::GM1_TYPE_TGX_CONST_SIZE:
@@ -252,17 +261,17 @@ namespace GM1File
     in.read(reinterpret_cast<char*>(resource.get()) + sizeof(Gm1Resource), sizeof(Gm1Header));
     resource->gm1Header = reinterpret_cast<Gm1Header*>(reinterpret_cast<uint8_t*>(resource.get()) + sizeof(Gm1Resource));
 
-    const uint32_t numberOfImages{ resource->gm1Header->numberOfPicturesInFile };
+    const uint32_t numberOfImages{ resource->gm1Header->info.numberOfPicturesInFile };
     const uint32_t gm1BodySize{ size - sizeof(Gm1Header) };
 
     // check if info in header matches data size in body (full size = header + (imageOffset + imageSize + imageHeader) * imageNumber + dataSize)
-    if (resource->gm1Header->dataSize != gm1BodySize - (2 * sizeof(uint32_t) + sizeof(Gm1Image)) * numberOfImages)
+    if (resource->gm1Header->info.dataSize != gm1BodySize - (2 * sizeof(uint32_t) + sizeof(Gm1Image)) * numberOfImages)
     {
       Log(LogLevel::ERROR, "Provided GM1 body does not have the size as specified in the header.");
       return {};
     }
     // simple type check in load to at least understand how the file should be handled
-    if (resource->gm1Header->gm1Type < Gm1Type::GM1_TYPE_INTERFACE || resource->gm1Header->gm1Type > Gm1Type::GM1_TYPE_NO_COMPRESSION_2)
+    if (resource->gm1Header->info.gm1Type < Gm1Type::GM1_TYPE_INTERFACE || resource->gm1Header->info.gm1Type > Gm1Type::GM1_TYPE_NO_COMPRESSION_2)
     {
       Log(LogLevel::ERROR, "Provided GM1 header does not specify known GM1 type.");
       return {};
@@ -294,12 +303,12 @@ namespace GM1File
       out.exceptions(std::ofstream::failbit | std::ofstream::badbit);
       out.open(file, std::ios::out | std::ios::trunc | std::ios::binary);
 
-      const uint32_t numberOfImages{ resource.gm1Header->numberOfPicturesInFile };
+      const uint32_t numberOfImages{ resource.gm1Header->info.numberOfPicturesInFile };
       out.write(reinterpret_cast<char*>(resource.gm1Header), sizeof(Gm1Header));
       out.write(reinterpret_cast<char*>(resource.imageOffsets), sizeof(uint32_t) * numberOfImages);
       out.write(reinterpret_cast<char*>(resource.imageSizes), sizeof(uint32_t) * numberOfImages);
       out.write(reinterpret_cast<char*>(resource.imageHeaders), sizeof(Gm1Image) * numberOfImages);
-      out.write(reinterpret_cast<char*>(resource.imageData), resource.gm1Header->dataSize);
+      out.write(reinterpret_cast<char*>(resource.imageData), resource.gm1Header->info.dataSize);
     }
 
     // small validation
@@ -312,6 +321,201 @@ namespace GM1File
     {
       Log(LogLevel::INFO, "Saved GM1 resource as GM1 file.");
     }
+  }
+
+  static bool isExpectedMetaObject(const std::string_view identifier, const std::string_view expectedIdentifier,
+    int version, std::span<const int> supportedVersions)
+  {
+    if (identifier != expectedIdentifier)
+    {
+      Log(LogLevel::ERROR, "Did not receive a {} object at the expected position.", expectedIdentifier);
+      return false;
+    }
+    const auto it{ std::find(supportedVersions.begin(), supportedVersions.end(), version) };
+    if (it == supportedVersions.end())
+    {
+      Log(LogLevel::ERROR, "{} object has no supported version. (Provided version: {})", identifier, version);
+      return false;
+    }
+    return true;
+  }
+
+  static bool hasExpectedEntryNumber(const ResourceMetaFormat::ResourceMetaObjectReader& metaObject, int mapEntries, int listEntries)
+  {
+    if (metaObject.getMapEntries().size() != mapEntries || metaObject.getListEntries().size() != listEntries)
+    {
+      Log(LogLevel::ERROR, "{} object has not expected number of map and list entries.", metaObject.getIdentifier());
+      return false;
+    }
+    return true;
+  }
+
+  static const std::string* getResourceObjectMapEntry(const ResourceMetaFormat::ResourceMetaObjectReader& metaObject,
+    const std::string_view identifier, const std::string_view key)
+  {
+    auto mapEntries{ metaObject.getMapEntries() };
+    auto it{ mapEntries.find(key) };
+    if (it == mapEntries.end())
+    {
+      Log(LogLevel::ERROR, "{} object has not expected entry '{}'.", identifier, key);
+      return nullptr;
+    }
+    return &it->second;
+  }
+
+  static bool readGm1HeaderInfoFromResourceMetaObject(const ResourceMetaFormat::ResourceMetaObjectReader& metaObject, Gm1HeaderInfo& outHeaderInfo)
+  {
+    Log(LogLevel::DEBUG, "Read Gm1Header info object from meta file.");
+    if (!isExpectedMetaObject(metaObject.getIdentifier(), Gm1HeaderMeta::RESOURCE_IDENTIFIER, metaObject.getVersion(), Gm1HeaderMeta::SUPPORTED_VERSIONS))
+    {
+      return false;
+    }
+    // version currently ignored, since only one available
+    if (!hasExpectedEntryNumber(metaObject, Gm1HeaderMeta::MAP_ENTRIES, Gm1HeaderMeta::LIST_ENTRIES))
+    {
+      return false;
+    }
+
+    // read header
+    const auto& headerInfoEntries{ metaObject.getListEntries() };
+    outHeaderInfo.unknown_0x0 = intFromStr<uint32_t>(headerInfoEntries.at(0));
+    outHeaderInfo.unknown_0x4 = intFromStr<uint32_t>(headerInfoEntries.at(1));
+    outHeaderInfo.unknown_0x8 = intFromStr<uint32_t>(headerInfoEntries.at(2));
+    outHeaderInfo.numberOfPicturesInFile = intFromStr<uint32_t>(headerInfoEntries.at(3));
+    outHeaderInfo.unknown_0x10 = intFromStr<uint32_t>(headerInfoEntries.at(4));
+
+    // horrible form, but data enums are fixed
+    outHeaderInfo.gm1Type = static_cast<Gm1Type>(intFromStr<int32_t, 0, static_cast<int32_t>(Gm1Type::GM1_TYPE_INTERFACE), static_cast<int32_t>(Gm1Type::GM1_TYPE_NO_COMPRESSION_2)>(headerInfoEntries.at(5)));
+
+    outHeaderInfo.unknown_0x18 = intFromStr<uint32_t>(headerInfoEntries.at(6));
+    outHeaderInfo.unknown_0x1C = intFromStr<uint32_t>(headerInfoEntries.at(7));
+    outHeaderInfo.unknown_0x20 = intFromStr<uint32_t>(headerInfoEntries.at(8));
+    outHeaderInfo.unknown_0x24 = intFromStr<uint32_t>(headerInfoEntries.at(9));
+    outHeaderInfo.unknown_0x28 = intFromStr<uint32_t>(headerInfoEntries.at(10));
+    outHeaderInfo.unknown_0x2C = intFromStr<uint32_t>(headerInfoEntries.at(11));
+    outHeaderInfo.width = intFromStr<uint32_t>(headerInfoEntries.at(12));
+    outHeaderInfo.height = intFromStr<uint32_t>(headerInfoEntries.at(13));;
+    outHeaderInfo.unknown_0x38 = intFromStr<uint32_t>(headerInfoEntries.at(14));
+    outHeaderInfo.unknown_0x3C = intFromStr<uint32_t>(headerInfoEntries.at(15));
+    outHeaderInfo.unknown_0x40 = intFromStr<uint32_t>(headerInfoEntries.at(16));
+    outHeaderInfo.unknown_0x44 = intFromStr<uint32_t>(headerInfoEntries.at(17));
+    outHeaderInfo.originX = intFromStr<uint32_t>(headerInfoEntries.at(18));
+    outHeaderInfo.originY = intFromStr<uint32_t>(headerInfoEntries.at(19));;
+    outHeaderInfo.dataSize = intFromStr<uint32_t>(headerInfoEntries.at(20));
+    outHeaderInfo.unknown_0x54 = intFromStr<uint32_t>(headerInfoEntries.at(21));
+    return true;
+  }
+
+  static bool loadPaletteFromFile(const std::filesystem::path& palettePath, std::span<uint16_t> outPalette)
+  {
+    if (outPalette.size() * sizeof(uint16_t) != PALETTE_SIZE)
+    {
+      Log(LogLevel::ERROR, "Receiver span has not the right size for a palette.");
+      return false;
+    }
+    if (!std::filesystem::is_regular_file(palettePath))
+    {
+      Log(LogLevel::ERROR, "Provided palette path is not a regular file.");
+      return false;
+    }
+    if (PALETTE_SIZE != std::filesystem::file_size(palettePath))
+    {
+      Log(LogLevel::ERROR, "Provided palette has not the fitting size.");
+      return false;
+    }
+
+    std::ifstream in;
+    in.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+    in.open(palettePath, std::ios::in | std::ios::binary);
+    in.read(reinterpret_cast<char*>(outPalette.data()), PALETTE_SIZE);
+    return true;
+  }
+
+  static bool readGm1ImageHeaderFromResourceMetaObject(const ResourceMetaFormat::ResourceMetaObjectReader& metaObject,
+    uint32_t& outOffset, uint32_t& outSize, Gm1ImageHeader& outImageHeader)
+  {
+    Log(LogLevel::DEBUG, "Read Gm1ImageHeader object from meta file.");
+    if (!isExpectedMetaObject(metaObject.getIdentifier(), Gm1ImageHeaderMeta::RESOURCE_IDENTIFIER, metaObject.getVersion(), Gm1ImageHeaderMeta::SUPPORTED_VERSIONS))
+    {
+      return false;
+    }
+    // version currently ignored, since only one available
+    if (!hasExpectedEntryNumber(metaObject, Gm1ImageHeaderMeta::MAP_ENTRIES, Gm1ImageHeaderMeta::LIST_ENTRIES))
+    {
+      return false;
+    }
+
+    const auto& imageOffset{ getResourceObjectMapEntry(metaObject, Gm1ImageHeaderMeta::RESOURCE_IDENTIFIER, Gm1ImageHeaderMeta::OFFSET_KEY) };
+    if (!imageOffset)
+    {
+      return false;
+    }
+    outOffset = intFromStr<uint32_t>(*imageOffset);
+
+    const auto& imageSize{ getResourceObjectMapEntry(metaObject, Gm1ImageHeaderMeta::RESOURCE_IDENTIFIER, Gm1ImageHeaderMeta::SIZE_KEY) };
+    if (!imageOffset)
+    {
+      return false;
+    }
+    outSize = intFromStr<uint32_t>(*imageSize);
+
+    const auto& imageHeaderListEntries{ metaObject.getListEntries() };
+    outImageHeader.width = intFromStr<uint16_t>(imageHeaderListEntries.at(0));
+    outImageHeader.height = intFromStr<uint16_t>(imageHeaderListEntries.at(1));
+    outImageHeader.offsetX = intFromStr<uint16_t>(imageHeaderListEntries.at(2));
+    outImageHeader.offsetY = intFromStr<uint16_t>(imageHeaderListEntries.at(3));
+    return true;
+  }
+
+  static bool readGm1TileObjectImageInfoFromResourceMetaObject(const ResourceMetaFormat::ResourceMetaObjectReader& metaObject,
+    Gm1TileObjectImageInfo& outGm1TileObjectImageInfo)
+  {
+    Log(LogLevel::DEBUG, "Read Gm1TileObjectImageInfo object from meta file.");
+    if (!isExpectedMetaObject(metaObject.getIdentifier(), Gm1TileObjectImageInfoMeta::RESOURCE_IDENTIFIER,
+      metaObject.getVersion(), Gm1TileObjectImageInfoMeta::SUPPORTED_VERSIONS))
+    {
+      return false;
+    }
+    // version currently ignored, since only one available
+    if (!hasExpectedEntryNumber(metaObject, Gm1TileObjectImageInfoMeta::MAP_ENTRIES, Gm1TileObjectImageInfoMeta::LIST_ENTRIES))
+    {
+      return false;
+    }
+
+    const auto& imageHeaderListEntries{ metaObject.getListEntries() };
+    outGm1TileObjectImageInfo.imagePart = intFromStr<uint8_t>(imageHeaderListEntries.at(0));
+    outGm1TileObjectImageInfo.subParts = intFromStr<uint8_t>(imageHeaderListEntries.at(1));
+    outGm1TileObjectImageInfo.tileOffset = intFromStr<uint16_t>(imageHeaderListEntries.at(2));
+    outGm1TileObjectImageInfo.imagePosition = static_cast<Gm1TileObjectImagePosition>(intFromStr<int8_t, 0, static_cast<int8_t>(Gm1TileObjectImagePosition::NONE), static_cast<int8_t>(Gm1TileObjectImagePosition::UPPER_RIGHT)>(imageHeaderListEntries.at(3)));
+    outGm1TileObjectImageInfo.imageOffsetX = intFromStr<int8_t>(imageHeaderListEntries.at(4));
+    outGm1TileObjectImageInfo.imageWidth = intFromStr<uint8_t>(imageHeaderListEntries.at(5));
+    outGm1TileObjectImageInfo.animatedColor = intFromStr<uint8_t>(imageHeaderListEntries.at(6));
+    return true;
+  }
+
+  static bool readGm1GeneralImageInfoFromResourceMetaObject(const ResourceMetaFormat::ResourceMetaObjectReader& metaObject,
+    Gm1GeneralImageInfo& outGm1GeneralImageInfo)
+  {
+    Log(LogLevel::DEBUG, "Read Gm1GeneralImageInfo object from meta file.");
+    if (!isExpectedMetaObject(metaObject.getIdentifier(), Gm1GeneralImageInfoMeta::RESOURCE_IDENTIFIER,
+      metaObject.getVersion(), Gm1GeneralImageInfoMeta::SUPPORTED_VERSIONS))
+    {
+      return false;
+    }
+    // version currently ignored, since only one available
+    if (!hasExpectedEntryNumber(metaObject, Gm1GeneralImageInfoMeta::MAP_ENTRIES, Gm1GeneralImageInfoMeta::LIST_ENTRIES))
+    {
+      return false;
+    }
+
+    const auto& imageHeaderListEntries{ metaObject.getListEntries() };
+    outGm1GeneralImageInfo.relativeDataPos = intFromStr<int16_t>(imageHeaderListEntries.at(0));
+    outGm1GeneralImageInfo.fontRelatedSize = intFromStr<int16_t>(imageHeaderListEntries.at(1));
+    outGm1GeneralImageInfo.unknown_0x4 = intFromStr<uint8_t>(imageHeaderListEntries.at(2));
+    outGm1GeneralImageInfo.unknown_0x5 = intFromStr<uint8_t>(imageHeaderListEntries.at(3));
+    outGm1GeneralImageInfo.unknown_0x6 = intFromStr<uint8_t>(imageHeaderListEntries.at(4));
+    outGm1GeneralImageInfo.flags = intFromStr<uint8_t>(imageHeaderListEntries.at(5));
+    return true;
   }
 
   UniqueGm1ResourcePointer loadGm1ResourceFromRaw(const std::filesystem::path& folder)
