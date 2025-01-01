@@ -153,14 +153,14 @@ struct std::formatter<Gm1TileObjectImageInfo> : public std::formatter<std::strin
       "Image Position: {}\n"
       "Image Offset X: {}\n"
       "Image Width: {}\n"
-      "Animated Color: {}",
+      "Flags: {:08b}",
       args.imagePart,
       args.subParts,
       args.tileOffset,
       args.imagePosition,
       args.imageOffsetX,
       args.imageWidth,
-      args.animatedColor
+      args.flags
     );
   }
 };
@@ -211,12 +211,14 @@ namespace GM1File
     inline constexpr int CURRENT_VERSION{ 1 };
     inline constexpr int SUPPORTED_VERSIONS[]{ 1 };
 
-    inline constexpr int MAP_ENTRIES{ 3 };
+    inline constexpr int MAP_ENTRIES{ 5 };
     inline constexpr int LIST_ENTRIES{ 0 };
 
     inline constexpr std::string_view RAW_DATA_PATH_KEY{ "data path" };
     inline constexpr std::string_view RAW_DATA_SIZE_KEY{ "data size" };
     inline constexpr std::string_view RAW_DATA_TRANSPARENT_PIXEL_KEY{ "transparent pixel" };
+    inline constexpr std::string_view RAW_DATA_WIDTH_KEY{ "data width" };
+    inline constexpr std::string_view RAW_DATA_HEIGHT_KEY{ "data height" };
   }
 
   namespace Gm1HeaderMeta
@@ -285,7 +287,7 @@ namespace GM1File
     inline constexpr std::string_view COMMENT_IMAGE_POSITION{ "image position" };
     inline constexpr std::string_view COMMENT_IMAGE_OFFSET_X{ "image offset x" };
     inline constexpr std::string_view COMMENT_IMAGE_WIDTH{ "image width" };
-    inline constexpr std::string_view COMMENT_ANIMATED_COLOR{ "animated color" };
+    inline constexpr std::string_view COMMENT_FLAGS{ "flags" };
   }
 
   namespace Gm1GeneralImageInfoMeta

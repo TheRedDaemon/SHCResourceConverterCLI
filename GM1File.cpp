@@ -498,7 +498,7 @@ namespace GM1File
     outGm1TileObjectImageInfo.imagePosition = static_cast<Gm1TileObjectImagePosition>(intFromStr<int8_t, 0, static_cast<int8_t>(Gm1TileObjectImagePosition::NONE), static_cast<int8_t>(Gm1TileObjectImagePosition::UPPER_RIGHT)>(imageHeaderListEntries.at(3)));
     outGm1TileObjectImageInfo.imageOffsetX = intFromStr<int8_t>(imageHeaderListEntries.at(4));
     outGm1TileObjectImageInfo.imageWidth = intFromStr<uint8_t>(imageHeaderListEntries.at(5));
-    outGm1TileObjectImageInfo.animatedColor = intFromStr<uint8_t>(imageHeaderListEntries.at(6));
+    outGm1TileObjectImageInfo.flags = intFromStr<uint8_t>(imageHeaderListEntries.at(6));
     return true;
   }
 
@@ -603,8 +603,8 @@ namespace GM1File
       // the size contains the tile, so this should work
       Gm1CoderRawInfo rawTileInfo{
         .raw{ outData },
-        .rawWidth{ TILE_WIDTH },
-        .rawHeight{ TILE_HEIGHT },
+        .rawWidth{ rawWidth },
+        .rawHeight{ rawHeight },
         .rawX{ image.imageInfo.tileObjectImageInfo.imageOffsetX < 0 ? image.imageHeader.offsetX - image.imageInfo.tileObjectImageInfo.imageOffsetX : image.imageHeader.offsetX },
         .rawY{ image.imageHeader.offsetY + image.imageHeader.height - TILE_HEIGHT },
       };
@@ -703,7 +703,7 @@ namespace GM1File
       .writeListEntry(std::to_string(static_cast<int8_t>(gm1TileObjectImageInfo.imagePosition)), Gm1TileObjectImageInfoMeta::COMMENT_IMAGE_POSITION)
       .writeListEntry(std::to_string(gm1TileObjectImageInfo.imageOffsetX), Gm1TileObjectImageInfoMeta::COMMENT_IMAGE_OFFSET_X)
       .writeListEntry(std::to_string(gm1TileObjectImageInfo.imageWidth), Gm1TileObjectImageInfoMeta::COMMENT_IMAGE_WIDTH)
-      .writeListEntry(std::to_string(gm1TileObjectImageInfo.animatedColor), Gm1TileObjectImageInfoMeta::COMMENT_ANIMATED_COLOR)
+      .writeListEntry(std::format("{:08b}", gm1TileObjectImageInfo.flags), Gm1TileObjectImageInfoMeta::COMMENT_FLAGS)
       .endObject();
   }
 
@@ -717,7 +717,7 @@ namespace GM1File
       .writeListEntry(std::to_string(gm1GeneralImageInfo.unknown_0x4), Gm1GeneralImageInfoMeta::COMMENT_UNKNOWN_0x4)
       .writeListEntry(std::to_string(gm1GeneralImageInfo.unknown_0x5), Gm1GeneralImageInfoMeta::COMMENT_UNKNOWN_0x5)
       .writeListEntry(std::to_string(gm1GeneralImageInfo.unknown_0x6), Gm1GeneralImageInfoMeta::COMMENT_UNKNOWN_0x6)
-      .writeListEntry(std::to_string(gm1GeneralImageInfo.flags), Gm1GeneralImageInfoMeta::COMMENT_FLAGS)
+      .writeListEntry(std::format("{:08b}", gm1GeneralImageInfo.flags), Gm1GeneralImageInfoMeta::COMMENT_FLAGS)
       .endObject();
   }
 
@@ -791,6 +791,8 @@ namespace GM1File
           .writeMapEntry(Gm1ResourceMeta::RAW_DATA_SIZE_KEY, std::to_string(rawDataSize))
           .writeMapEntry(Gm1ResourceMeta::RAW_DATA_TRANSPARENT_PIXEL_KEY, std::format("{:#06x}", instructions.transparentPixelRawColor),
             "Color used for transparent pixel during extract. Not automatically used during packing.")
+          .writeMapEntry(Gm1ResourceMeta::RAW_DATA_WIDTH_KEY, std::to_string(canvasWidth))
+          .writeMapEntry(Gm1ResourceMeta::RAW_DATA_HEIGHT_KEY, std::to_string(canvasHeight))
           .endObject();
 
         writeGm1HeaderInfoToResourceMetaObject(resource.gm1Header->info, metaWriter);

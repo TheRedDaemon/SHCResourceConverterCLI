@@ -39,7 +39,7 @@ extern "C" __declspec(dllexport) Gm1CoderResult decodeTileToRaw(const uint16_t* 
     for (int x{ -QUARTER_TILE_WIDTH }; x <= QUARTER_TILE_WIDTH; ++x)
     {
       const int xAbs{ x < 0 ? -x : x };
-      if (xAbs + yAbs <= HALF_TILE_WIDTH)
+      if (xAbs + yAbs <= HALF_TILE_HEIGHT)
       {
         raw->raw[targetIndex++] = tile[sourceIndex++];
         raw->raw[targetIndex++] = tile[sourceIndex++];
@@ -80,7 +80,7 @@ extern "C" __declspec(dllexport) Gm1CoderResult encodeRawToTile(const Gm1CoderRa
     {
       
       const int xAbs{ x < 0 ? -x : x };
-      if (xAbs + yAbs <= HALF_TILE_WIDTH)
+      if (xAbs + yAbs <= HALF_TILE_HEIGHT)
       {
         if (tile)
         {

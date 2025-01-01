@@ -88,7 +88,7 @@ struct alignas(int32_t) Gm1TileObjectImageInfo
   Gm1TileObjectImagePosition imagePosition;
   int8_t imageOffsetX;
   uint8_t imageWidth;
-  uint8_t animatedColor; // if alpha 1?
+  uint8_t flags; // seems to also be flags, not the animation color
 };
 
 struct alignas(int32_t) Gm1GeneralImageInfo
@@ -98,7 +98,7 @@ struct alignas(int32_t) Gm1GeneralImageInfo
   uint8_t unknown_0x4;
   uint8_t unknown_0x5;
   uint8_t unknown_0x6;
-  uint8_t flags; // used to indicate together with game flag, if certain animation frames are skipped
+  uint8_t flags; // seems to indicate together with game flag if certain animation frames are skipped
 };
 
 union alignas(int32_t) Gm1ImageInfo
