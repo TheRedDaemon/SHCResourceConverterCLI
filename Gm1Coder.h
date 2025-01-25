@@ -55,6 +55,9 @@ struct std::formatter<Gm1CoderDataInfo> : public std::formatter<std::string>
 constexpr int TILE_BYTE_SIZE{ 0x200 };
 constexpr int TILE_WIDTH{ 30 };
 constexpr int TILE_HEIGHT{ 16 };
+constexpr int HALF_TILE_WIDTH{ TILE_WIDTH / 2 };
+constexpr int QUARTER_TILE_WIDTH{ HALF_TILE_WIDTH / 2 };
+constexpr int HALF_TILE_HEIGHT{ TILE_HEIGHT / 2 };
 
 // The following functions provide a check run that will not necessarily run the logic, but will check the parameters for validity
 // In all these cases, the Ptr to be written too needs to be a nullptr, and the result will be CHECKED_PARAMETER

@@ -332,6 +332,26 @@ namespace GM1File
     }
   }
 
+  static ResourceMetaFormat::ResourceMetaFileReader readResourceMetaFile(const std::filesystem::path& folder, std::string_view resourceName)
+  {
+    try
+    {
+      std::filesystem::path file{ folder / resourceName };
+      file.replace_extension(ResourceMetaFormat::FILE::EXTENSION);
+
+      std::ifstream in;
+      in.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+      in.open(file, std::ios::in); // text handling
+
+      return ResourceMetaFormat::ResourceMetaFileReader::parseFrom(in);
+    }
+    catch (...)
+    {
+      Log(LogLevel::ERROR, "Failed to read resource meta file.");
+      throw;
+    }
+  }
+
   static bool isExpectedMetaObject(const std::string_view identifier, const std::string_view expectedIdentifier,
     int version, std::span<const int> supportedVersions)
   {
@@ -527,9 +547,221 @@ namespace GM1File
     return true;
   }
 
+  // mostly copied from Gm1Coder.cpp
+  static std::unique_ptr<uint16_t[]> extractRectFromRaw(const Gm1CoderRawInfo& raw, int32_t width, int32_t height)
+  {
+    if (!raw.raw)
+    {
+      Log(LogLevel::ERROR, "extractRectFromRaw: Invalid raw data.");
+      return {};
+    }
+    if (!(raw.rawX >= 0 && raw.rawY >= 0 && raw.rawX + width <= raw.rawWidth && raw.rawY + height <= raw.rawHeight))
+    {
+      Log(LogLevel::ERROR, "extractRectFromRaw: Requested rectangle is out of bounds.");
+      return {};
+    }
+    auto extractRect{ std::make_unique_for_overwrite<uint16_t[]>(static_cast<size_t>(width) * height) };
+
+    size_t sourceIndex{ raw.rawX + static_cast<uint64_t>(raw.rawWidth) * raw.rawY };
+    size_t targetIndex{ 0 };
+    for (int y{ 0 }; y < height; ++y)
+    {
+      std::memcpy(extractRect.get() + targetIndex, raw.raw + sourceIndex, width * sizeof(uint16_t));
+      sourceIndex += raw.rawWidth;
+      targetIndex += width * sizeof(uint16_t);
+    }
+    return extractRect;
+  }
+
+  // partially copied from Gm1Coder.cpp
+  static bool adjustTileImageEdges(uint16_t* data, const Gm1Image& image,
+    uint16_t transparentPixelRawColor)
+  {
+    const Gm1TileObjectImageInfo& tileInfo{ imageInfo.imageInfo.tileObjectImageInfo };
+    if (tileInfo.imagePosition == Gm1TileObjectImagePosition::NONE)
+    {
+      return true;
+    }
+
+    if (!data)
+    {
+      Log(LogLevel::ERROR, "adjustTileImageEdges: No data given.");
+      return false;
+    }
+
+    // tile coords
+    int tileX{ -tileInfo.imageOffsetX },
+    int tileY{ image.imageHeader.height - TILE_HEIGHT },
+
+    // image coords
+    int rawX{ 0 },
+    int rawY{ 0 },
+
+    // either need to test overlap and then determine if the cutout needs to happen, or try to determine "center",
+    // although, this could be harder, due to the precision which needs to be per pixel
+
+
+
+
+  }
+
   UniqueGm1ResourcePointer loadGm1ResourceFromRaw(const std::filesystem::path& folder)
   {
-    throw std::exception{ "Not yet implemented." };
+    Log(LogLevel::INFO, "Try loading GM1 resource from raw data.");
+    if (!std::filesystem::is_directory(folder))
+    {
+      Log(LogLevel::ERROR, "Provided raw data folder path is not a directory.");
+      return {};
+    }
+
+    const std::string resourceName{ folder.filename().string() };
+    Log(LogLevel::DEBUG, "Using folder name '{}' as resource name.", resourceName);
+
+    Log(LogLevel::DEBUG, "Loading resource meta file.");
+    ResourceMetaFormat::ResourceMetaFileReader resourceMetaFile{ readResourceMetaFile(folder, resourceName) };
+    Log(LogLevel::DEBUG, "Loaded resource meta file.");
+
+    auto& resourceMetaObjects{ resourceMetaFile.getObjects() };
+    if (resourceMetaObjects.size() < 2)
+    {
+      Log(LogLevel::ERROR, "Resource meta file has not at least two entries.");
+      return {};
+    }
+
+
+    Log(LogLevel::DEBUG, "Read TgxResource object from meta file.");
+    const ResourceMetaFormat::ResourceMetaObjectReader& gm1ResourceMeta{ resourceMetaObjects.at(0) };
+    if (!isExpectedMetaObject(gm1ResourceMeta.getIdentifier(), Gm1ResourceMeta::RESOURCE_IDENTIFIER,
+      gm1ResourceMeta.getVersion(), Gm1ResourceMeta::SUPPORTED_VERSIONS))
+    {
+      return {};
+    }
+    // version currently ignored, since only one available
+    if (!hasExpectedEntryNumber(gm1ResourceMeta, Gm1ResourceMeta::MAP_ENTRIES, Gm1ResourceMeta::LIST_ENTRIES))
+    {
+      return {};
+    }
+
+    const std::string* rawDataPathStr{ getResourceObjectMapEntry(gm1ResourceMeta, Gm1ResourceMeta::RESOURCE_IDENTIFIER, Gm1ResourceMeta::RAW_DATA_PATH_KEY) };
+    const std::string* rawDataSizeStr{ getResourceObjectMapEntry(gm1ResourceMeta, Gm1ResourceMeta::RESOURCE_IDENTIFIER, Gm1ResourceMeta::RAW_DATA_SIZE_KEY) };
+    const std::string* rawDataTransparentPixelStr{ getResourceObjectMapEntry(gm1ResourceMeta, Gm1ResourceMeta::RESOURCE_IDENTIFIER, Gm1ResourceMeta::RAW_DATA_TRANSPARENT_PIXEL_KEY) };
+    const std::string* rawDataWidthStr{ getResourceObjectMapEntry(gm1ResourceMeta, Gm1ResourceMeta::RESOURCE_IDENTIFIER, Gm1ResourceMeta::RAW_DATA_WIDTH_KEY) };
+    const std::string* rawDataHeightStr{ getResourceObjectMapEntry(gm1ResourceMeta, Gm1ResourceMeta::RESOURCE_IDENTIFIER, Gm1ResourceMeta::RAW_DATA_HEIGHT_KEY) };
+    if (!rawDataPathStr || !rawDataSizeStr || !rawDataTransparentPixelStr || !rawDataWidthStr || !rawDataHeightStr)
+    {
+      return {};
+    }
+    const std::string& rawDataPath{ *rawDataPathStr };
+    const size_t rawDataSize{ intFromStr<size_t>(*rawDataSizeStr) };
+    const uint16_t rawDataTransparentPixel{ intFromStr<uint16_t>(*rawDataTransparentPixelStr) };
+    const int rawDataWidth{ intFromStr<int>(*rawDataWidthStr) };
+    const int rawDataHeight{ intFromStr<int>(*rawDataHeightStr) };
+
+
+    Log(LogLevel::DEBUG, "Read TgxHeader object from meta file.");
+    const ResourceMetaFormat::ResourceMetaObjectReader& tgxHeaderMeta{ resourceMetaObjects.at(1) };
+    if (tgxHeaderMeta.getIdentifier() != TgxHeaderMeta::RESOURCE_IDENTIFIER)
+    {
+      Log(LogLevel::ERROR, "Resource meta file does not have a {} object at last position.", TgxHeaderMeta::RESOURCE_IDENTIFIER);
+      return {};
+    }
+    if (!isVersionSupported(tgxHeaderMeta.getVersion(), TgxHeaderMeta::SUPPORTED_VERSIONS))
+    {
+      Log(LogLevel::ERROR, "{} object has no supported version.", TgxHeaderMeta::RESOURCE_IDENTIFIER);
+      return {};
+    }
+    // version currently ignored, since only one available
+
+    const auto& tgxHeaderEntries{ tgxHeaderMeta.getListEntries() };
+    if (tgxHeaderEntries.size() != 2)
+    {
+      Log(LogLevel::ERROR, "{} object has not expected number of entries.", TgxHeaderMeta::RESOURCE_IDENTIFIER);
+      return {};
+    }
+    const int32_t width{ intFromStr<int32_t>(tgxHeaderEntries.at(0)) };
+    const int32_t height{ intFromStr<int32_t>(tgxHeaderEntries.at(1)) };
+
+    const std::filesystem::path fullDataPath{ folder / relativeDataPath };
+
+    Log(LogLevel::DEBUG, "Validating certain values.");
+    if (static_cast<size_t>(width) * height * sizeof(uint16_t) != rawDataSize)
+    {
+      Log(LogLevel::ERROR, "Dimensions in header do not match raw data size in meta file.");
+      return {};
+    }
+    if (std::filesystem::file_size(fullDataPath) != rawDataSize)
+    {
+      Log(LogLevel::ERROR, "Size of raw data file do not match raw data size in meta file.");
+      return {};
+    }
+    if (transparentPixel != instructions.transparentPixelRawColor)
+    {
+      Log(LogLevel::WARNING, "Transparent pixel in meta file does not match transparent pixel in coder instructions."
+        "This is valid, but might produce unexpected results. Set the coder options in the CLI if this is not wanted.");
+    }
+
+    auto rawData{ std::make_unique_for_overwrite<uint16_t[]>(static_cast<size_t>(width) * height) };
+    Log(LogLevel::DEBUG, "Loading raw data.");
+    try
+    {
+      std::ifstream in;
+      in.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+      in.open(fullDataPath, std::ios::in | std::ios::binary);
+      in.read(reinterpret_cast<char*>(rawData.get()), rawDataSize);
+    }
+    catch (...)
+    {
+      Log(LogLevel::ERROR, "Failed to load raw data.");
+      throw;
+    }
+    Log(LogLevel::DEBUG, "Loaded raw data.");
+
+    const TgxCoderRawInfo rawInfo{
+      .data{ rawData.get() },
+      .rawWidth{ width },
+      .rawHeight{ height },
+      .rawX{ 0 },
+      .rawY{ 0 }
+    };
+    TgxCoderTgxInfo tgxInfo{
+      .colorType{ TgxColorType::DEFAULT },
+      .data{ nullptr },
+      .dataSize{ 0 },
+      .tgxWidth{ width },
+      .tgxHeight{ height }
+    };
+
+    Log(LogLevel::DEBUG, "Determine encoded size.");
+    const TgxCoderResult dataSizeCheckResult{ encodeRawToTgx(&rawInfo, &tgxInfo, &instructions) };
+    if (dataSizeCheckResult != TgxCoderResult::FILLED_ENCODING_SIZE)
+    {
+      Log(LogLevel::ERROR, "{}", std::string_view{ getTgxResultDescription(dataSizeCheckResult) });
+      return {};
+    }
+
+    Log(LogLevel::DEBUG, "Create TGX resource.");
+    const uint32_t resourceSize{ sizeof(TgxHeader) + tgxInfo.dataSize };
+    UniqueTgxResourcePointer resource{ createWithAdditionalMemory<TgxResource>(resourceSize) };
+    resource->base.type = SHCResourceType::SHC_RESOURCE_TGX;
+    resource->base.resourceSize = resourceSize;
+    resource->base.colorFormat = PixeColorFormat::ARGB_1555;
+    resource->dataSize = tgxInfo.dataSize;
+    resource->header = reinterpret_cast<TgxHeader*>(reinterpret_cast<uint8_t*>(resource.get()) + sizeof(TgxResource));
+    resource->imageData = reinterpret_cast<uint8_t*>(resource->header) + sizeof(TgxHeader);
+    resource->header->width = width;
+    resource->header->height = height;
+
+    Log(LogLevel::DEBUG, "Encode into TGX resource.");
+    tgxInfo.data = resource->imageData;
+    const TgxCoderResult encodingResult{ encodeRawToTgx(&rawInfo, &tgxInfo, &instructions) };
+    if (encodingResult != TgxCoderResult::SUCCESS)
+    {
+      Log(LogLevel::ERROR, "{}", std::string_view{ getTgxResultDescription(encodingResult) });
+      return {};
+    }
+
+    Log(LogLevel::INFO, "Loaded TGX resource from raw data.");
+    return resource;
   }
 
   static void decodeGm1UncompressedResource(const Gm1Resource& resource, const TgxCoderInstruction& instructions,
@@ -683,8 +915,8 @@ namespace GM1File
   {
     Log(LogLevel::DEBUG, "Write Gm1ImageHeader object to meta file.");
     metaWriter.startObject(Gm1ImageHeaderMeta::RESOURCE_IDENTIFIER, Gm1ImageHeaderMeta::CURRENT_VERSION)
-      .writeMapEntry(Gm1ImageHeaderMeta::OFFSET_KEY, std::to_string(offset))
-      .writeMapEntry(Gm1ImageHeaderMeta::SIZE_KEY, std::to_string(size))
+      .writeMapEntry(Gm1ImageHeaderMeta::OFFSET_KEY, std::to_string(offset), Gm1ImageHeaderMeta::OFFSET_KEY_COMMENT)
+      .writeMapEntry(Gm1ImageHeaderMeta::SIZE_KEY, std::to_string(size), Gm1ImageHeaderMeta::SIZE_KEY_COMMENT)
       .writeListEntry(std::to_string(imageHeader.width), Gm1ImageHeaderMeta::COMMENT_WIDTH)
       .writeListEntry(std::to_string(imageHeader.height), Gm1ImageHeaderMeta::COMMENT_HEIGHT)
       .writeListEntry(std::to_string(imageHeader.offsetX), Gm1ImageHeaderMeta::COMMENT_OFFSET_X)

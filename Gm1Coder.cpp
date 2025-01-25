@@ -1,9 +1,5 @@
 #include "Gm1Coder.h"
 
-static constexpr int HALF_TILE_WIDTH{ TILE_WIDTH / 2 };
-static constexpr int QUARTER_TILE_WIDTH{ HALF_TILE_WIDTH / 2 };
-static constexpr int HALF_TILE_HEIGHT{ TILE_HEIGHT / 2 };
-
 static bool isRectContainedInCanvas(int x, int y,
   unsigned int innerWidth, unsigned int innerHeight,
   unsigned int canvasWidth, unsigned int canvasHeight)

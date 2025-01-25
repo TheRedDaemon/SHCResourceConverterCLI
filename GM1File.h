@@ -250,7 +250,7 @@ namespace GM1File
     inline constexpr std::string_view COMMENT_UNKNOWN_0x44{ "unknown 0x44" };
     inline constexpr std::string_view COMMENT_ORIGIN_X{ "origin x" };
     inline constexpr std::string_view COMMENT_ORIGIN_Y{ "origin y" };
-    inline constexpr std::string_view COMMENT_DATA_SIZE{ "data size" };
+    inline constexpr std::string_view COMMENT_DATA_SIZE{ "data size, unused for load from raw" };
     inline constexpr std::string_view COMMENT_UNKNOWN_0x54{ "unknown 0x54" };
   }
 
@@ -265,6 +265,8 @@ namespace GM1File
 
     inline constexpr std::string_view OFFSET_KEY{ "data offset" };
     inline constexpr std::string_view SIZE_KEY{ "data size" };
+    inline constexpr std::string_view OFFSET_KEY_COMMENT{ "not used for loading from raw" };
+    inline constexpr std::string_view SIZE_KEY_COMMENT{ "not used for loading from raw" };
 
     inline constexpr std::string_view COMMENT_WIDTH{ "width" };
     inline constexpr std::string_view COMMENT_HEIGHT{ "height" };
